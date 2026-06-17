@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# La bdd kp, eso no debe ir
+mi_DB.db3

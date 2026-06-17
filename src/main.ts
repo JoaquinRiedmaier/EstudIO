@@ -10,6 +10,15 @@ interface Materia {
   anual: boolean;
 }
 
+interface Apunte {
+  codigo_apunte: number;
+  tema: string;
+  materia_codigo: number;
+  fecha_creacion: string;
+  ult_modificacion: string;
+  ruta: string;
+}
+
 // State
 let materiasCache: Materia[] = [];
 let currentCalendarDate = new Date();
@@ -20,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupForms();
   setupCalendar();
   setupModal();
+  cargarUltimosModificados();
   // removed dateInput init
 });
 
@@ -91,10 +101,12 @@ function setupForms() {
 
     // Auto-generate current date for creation
     const now = new Date();
-    // Use local timezone adjusted date instead of strict ISO to avoid off-by-one errors due to UTC
-    const offset = now.getTimezoneOffset();
-    const localDate = new Date(now.getTime() - (offset * 60 * 1000));
-    const fechaCreacion = localDate.toISOString().split('T')[0];
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const fechaCreacion = `${year}-${month}-${day} ${hours}:${minutes}`;
 
     const ruta = (document.getElementById("apu-ruta") as HTMLInputElement).value;
 
@@ -113,6 +125,7 @@ function setupForms() {
       });
       showToast(resp, "success");
       (formApunte as HTMLFormElement).reset();
+      cargarUltimosModificados();
     } catch (err: any) {
       showToast(err.toString(), "error");
     }
@@ -152,9 +165,12 @@ function setupModal() {
 
     // Auto-generate current date for creation
     const now = new Date();
-    const offset = now.getTimezoneOffset();
-    const localDate = new Date(now.getTime() - (offset * 60 * 1000));
-    const fechaCreacion = localDate.toISOString().split('T')[0];
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const fechaCreacion = `${year}-${month}-${day} ${hours}:${minutes}`;
 
     const ruta = (document.getElementById("modal-apu-ruta") as HTMLInputElement).value;
 
@@ -174,6 +190,7 @@ function setupModal() {
       showToast(resp, "success");
       (formModalApunte as HTMLFormElement).reset();
       modal?.classList.remove("active");
+      cargarUltimosModificados();
     } catch (err: any) {
       showToast(err.toString(), "error");
     }
@@ -375,5 +392,50 @@ function renderCalendar() {
     dateEl.className = "calendar-date other-month";
     dateEl.textContent = i.toString();
     datesGrid.appendChild(dateEl);
+  }
+}
+
+async function cargarUltimosModificados() {
+  const container = document.getElementById("recent-notes-list");
+  if (!container) return;
+
+  try {
+    const apuntes = await invoke<Apunte[]>("mostrar_ult_modif");
+    
+    if (apuntes.length === 0) {
+      container.innerHTML = `<li style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; padding: 0.5rem 0;">No hay apuntes recientes</li>`;
+      return;
+    }
+
+    container.innerHTML = "";
+    apuntes.forEach(apunte => {
+      const li = document.createElement("li");
+      li.className = "recent-note-item";
+      
+      const [datePart, timePart] = apunte.ult_modificacion.split(' ');
+      let formattedDate = apunte.ult_modificacion;
+      
+      if (datePart && timePart) {
+        const dateParts = datePart.split('-');
+        if (dateParts.length === 3) {
+          formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]} ${timePart}`;
+        }
+      } else {
+        // Fallback for older entries without time
+        const dateParts = apunte.ult_modificacion.split('-');
+        if (dateParts.length === 3) {
+          formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+        }
+      }
+
+      li.innerHTML = `
+        <span class="recent-note-tema" title="${apunte.tema}">${apunte.tema}</span>
+        <span class="recent-note-fecha">${formattedDate}</span>
+      `;
+      container.appendChild(li);
+    });
+  } catch (err) {
+    console.error("Error cargando apuntes recientes", err);
+    container.innerHTML = `<li style="font-size: 0.8rem; color: var(--error);">Error al cargar.</li>`;
   }
 }

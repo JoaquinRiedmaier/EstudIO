@@ -1,5 +1,5 @@
 mod estructuras;
-use estructuras::Materia;
+use estructuras::{Apunte, Materia};
 
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
@@ -12,7 +12,8 @@ struct DbState {
 fn sanitize_filename(name: &str) -> String {
     name.chars()
         .map(|c| match c {
-            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' | '#' => '_',
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' | '#' | '$' | '%' | '^' | '&'
+            | '~' | '`' | '!' | '=' | '+' | '-' | ';' | ',' | '.' | ' ' => '_',
             c => c,
         })
         .collect::<String>()
@@ -148,7 +149,7 @@ fn crear_apunte(
     state: State<'_, DbState>,
 ) -> Result<String, String> {
     let db = state.db.lock().unwrap();
-
+    let tema = sanitize_filename(&tema);
     let materia_codigo = materia_codigo.parse::<u32>().unwrap();
     let db_has_materias: usize = db
         .query_row("SELECT COUNT(*) FROM MATERIA", [], |row| row.get(0))
@@ -178,6 +179,35 @@ fn crear_apunte(
     Ok("Apunte registrado exitosamente.".to_string())
 }
 
+#[tauri::command]
+fn mostrar_ult_modif(state: State<'_, DbState>) -> Result<Vec<Apunte>, String> {
+    let db = state.db.lock().unwrap();
+    let mut apuntes_consulta = db
+        .prepare("SELECT tema, ult_modificacion FROM APUNTE ORDER BY ult_modificacion DESC LIMIT 5")
+        .map_err(|e| format!("No es posible crear el statement: {}", e))?;
+    let iterador = apuntes_consulta
+        .query_map([], |registro| {
+            Ok(Apunte {
+                tema: registro.get(0)?,
+                ult_modificacion: registro.get(1)?,
+                codigo_apunte: 0,
+                materia_codigo: 0,
+                fecha_creacion: "".to_string(),
+                ruta: "".to_string(),
+            })
+        })
+        .map_err(|e| format!("Error consultando apuntes: {}", e))?;
+
+    let mut result = Vec::new();
+    for apunte in iterador {
+        match apunte {
+            Ok(a) => result.push(a),
+            Err(e) => eprintln!("Error leyendo apunte: {}", e),
+        }
+    }
+    Ok(result)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db = inicio();
@@ -189,7 +219,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             crear_materia,
             mostrar_materias,
-            crear_apunte
+            crear_apunte,
+            mostrar_ult_modif,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
