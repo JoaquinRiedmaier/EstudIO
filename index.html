@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="/src/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EstudIO</title>
+  <script type="module" src="/src/main.ts" defer></script>
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar glass-panel">
+      <div class="logo">
+        <h2>EstudIO</h2>
+        <p>Tu gestor de estudio</p>
+      </div>
+      <nav class="nav-menu">
+        <button class="nav-btn active" data-target="view-nueva-materia">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          Nueva Materia
+        </button>
+        <button class="nav-btn" data-target="view-materias">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          Ver Materias
+        </button>
+        <button class="nav-btn" data-target="view-nuevo-apunte">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          Nuevo Apunte
+        </button>
+      </nav>
+      
+      <div class="calendar-widget glass-panel">
+        <div class="calendar-header">
+          <button id="prev-month" class="icon-btn" aria-label="Mes anterior">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <span id="calendar-month-year"></span>
+          <button id="next-month" class="icon-btn" aria-label="Mes siguiente">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+        <div class="calendar-days">
+          <span>Do</span><span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sa</span>
+        </div>
+        <div class="calendar-grid" id="calendar-dates">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <h1 id="view-title">Nueva Materia</h1>
+      </header>
+
+      <div class="content-area">
+        <!-- View: Nueva Materia -->
+        <section id="view-nueva-materia" class="view active fade-in">
+          <div class="card glass-panel">
+            <h3>Registrar una Materia</h3>
+            <form id="form-materia" class="modern-form">
+              <div class="form-group">
+                <label for="mat-nombre">Nombre de la materia</label>
+                <input type="text" id="mat-nombre" required placeholder="Ej. Álgebra Lineal" />
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="mat-ano">Año de cursada</label>
+                  <input type="number" id="mat-ano" min="1" required placeholder="Ej. 1" />
+                </div>
+                <div class="form-group">
+                  <label for="mat-cuatrimestre">Cuatrimestre</label>
+                  <input type="number" id="mat-cuatrimestre" min="1" max="2" required placeholder="1 o 2" />
+                </div>
+              </div>
+
+              <div class="form-group checkbox-group">
+                <label class="toggle">
+                  <input type="checkbox" id="mat-anual">
+                  <span class="slider"></span>
+                </label>
+                <span>¿Es materia anual?</span>
+              </div>
+
+              <button type="submit" class="btn-primary">
+                Guardar Materia
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <!-- View: Ver Materias -->
+        <section id="view-materias" class="view">
+          <div class="materias-grid" id="materias-list">
+            <!-- Populated dynamically via TS -->
+          </div>
+        </section>
+
+        <!-- View: Nuevo Apunte -->
+        <section id="view-nuevo-apunte" class="view">
+          <div class="card glass-panel">
+            <h3>Registrar un Apunte</h3>
+            <form id="form-apunte" class="modern-form">
+              <div class="form-group">
+                <label for="apu-tema">Tema del apunte</label>
+                <input type="text" id="apu-tema" required placeholder="Ej. Ecuaciones de 2do grado" />
+              </div>
+              
+              <div class="form-group">
+                <label for="apu-materia">Materia</label>
+                <select id="apu-materia" required>
+                  <option value="" disabled selected>Selecciona una materia...</option>
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="apu-ruta">Ruta al archivo / link</label>
+                <div style="display:flex; gap: 0.5rem;">
+                  <input type="text" id="apu-ruta" required placeholder="/ruta/al/documento.pdf" style="flex:1;" />
+                  <button type="button" class="btn-secondary" id="btn-select-ruta" style="padding: 0.5rem;" title="Seleccionar archivo">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-1.22-1.82A2 2 0 0 0 8.53 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" class="btn-primary">
+                Guardar Apunte
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </button>
+            </form>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Apunte Modal -->
+  <div id="modal-apunte" class="modal-overlay">
+    <div class="modal-content glass-panel card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem;">
+        <h3 style="margin:0;">Registrar Apunte</h3>
+        <button id="close-modal" class="icon-btn" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <p id="modal-materia-nombre" style="color:var(--text-secondary); margin-bottom: 1.5rem;"></p>
+      
+      <form id="form-modal-apunte" class="modern-form">
+        <input type="hidden" id="modal-apu-materia" />
+        <div class="form-group">
+          <label for="modal-apu-tema">Tema del apunte</label>
+          <input type="text" id="modal-apu-tema" required placeholder="Ej. Ecuaciones de 2do grado" />
+        </div>
+        <div class="form-group">
+          <label for="modal-apu-ruta">Ruta al archivo / link</label>
+          <div style="display:flex; gap: 0.5rem;">
+            <input type="text" id="modal-apu-ruta" required placeholder="/ruta/al/documento.pdf" style="flex:1;" />
+            <button type="button" class="btn-secondary" id="btn-modal-select-ruta" style="padding: 0.5rem;" title="Seleccionar archivo">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-1.22-1.82A2 2 0 0 0 8.53 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="margin-top: 1rem; width: 100%;">
+          Guardar Apunte
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toast-container" class="toast-container"></div>
+</body>
+</html>
