@@ -170,6 +170,10 @@ body {
   display: block;
 }
 
+#view-editor-apunte.active {
+  display: flex;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

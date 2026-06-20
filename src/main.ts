@@ -1,5 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { seleccionarRuta } from "./file";
+import ace from "ace-builds";
+import "ace-builds/src-noconflict/mode-markdown";
+import "ace-builds/src-noconflict/theme-chrome";
 
 // Define Interfaces
 interface Materia {
@@ -22,6 +25,9 @@ interface Apunte {
 // State
 let materiasCache: Materia[] = [];
 let currentCalendarDate = new Date();
+let editorInstancia: any = null;
+let currentEditPath: string = "";
+let currentEditCodigo: number | null = null;
 
 // DOM Elements
 document.addEventListener("DOMContentLoaded", () => {
@@ -29,8 +35,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupForms();
   setupCalendar();
   setupModal();
+  setupEditor();
   cargarUltimosModificados();
-  // removed dateInput init
 });
 
 function setupNavigation() {
@@ -140,10 +146,84 @@ function setupForms() {
   });
 }
 
+function setupEditor() {
+  console.log("Iniciando setupEditor (eventos)...");
+
+
+  const btnCerrar = document.getElementById("btn-editor-cerrar");
+  const btnGuardar = document.getElementById("btn-editor-guardar");
+  const btnGuardarCerrar = document.getElementById("btn-editor-guardar-cerrar");
+
+  btnCerrar?.addEventListener("click", () => {
+    cerrarEditor();
+  });
+
+  btnGuardar?.addEventListener("click", async () => {
+    await guardarApunteActual();
+  });
+
+  btnGuardarCerrar?.addEventListener("click", async () => {
+    const exito = await guardarApunteActual();
+    if (exito) cerrarEditor();
+  });
+}
+
+function cerrarEditor() {
+  currentEditPath = "";
+  currentEditCodigo = null;
+  if (editorInstancia) editorInstancia.setValue("", -1);
+  
+  const views = document.querySelectorAll(".view");
+  views.forEach(v => v.classList.remove("active"));
+  document.getElementById("view-materias")?.classList.add("active");
+  
+  const titleEl = document.getElementById("view-title");
+  if (titleEl) titleEl.textContent = "Ver Materias";
+  
+  const navBtns = document.querySelectorAll(".nav-btn");
+  navBtns.forEach(b => {
+    b.classList.remove("active");
+    if (b.getAttribute("data-target") === "view-materias") {
+      b.classList.add("active");
+    }
+  });
+}
+
+async function guardarApunteActual(): Promise<boolean> {
+  if (!currentEditPath || !editorInstancia || currentEditCodigo === null) return false;
+  try {
+    const content = editorInstancia.getValue();
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const fechaModif = `${year}-${month}-${day} ${hours}:${minutes}`;
+
+    await invoke("guardar_apunte", { 
+      path: currentEditPath, 
+      content,
+      apunteCodigo: currentEditCodigo.toString(),
+      fechaModif: fechaModif
+    });
+    showToast("Apunte guardado correctamente", "success");
+    cargarUltimosModificados();
+    return true;
+  } catch (error: any) {
+    showToast(`Error al guardar: ${error}`, "error");
+    return false;
+  }
+}
+
 function setupModal() {
   const modal = document.getElementById("modal-apunte");
   const closeModalBtn = document.getElementById("close-modal");
   const formModalApunte = document.getElementById("form-modal-apunte");
+
+  const modalVerApuntes = document.getElementById("modal-ver-apuntes");
+  const closeModalVerApuntesBtn = document.getElementById("close-modal-ver-apuntes");
 
   if (modal && closeModalBtn) {
     closeModalBtn.addEventListener("click", () => {
@@ -154,6 +234,18 @@ function setupModal() {
     modal.addEventListener("click", (e) => {
       if (e.target === modal) {
         modal.classList.remove("active");
+      }
+    });
+  }
+
+  if (modalVerApuntes && closeModalVerApuntesBtn) {
+    closeModalVerApuntesBtn.addEventListener("click", () => {
+      modalVerApuntes.classList.remove("active");
+    });
+
+    modalVerApuntes.addEventListener("click", (e) => {
+      if (e.target === modalVerApuntes) {
+        modalVerApuntes.classList.remove("active");
       }
     });
   }
@@ -252,7 +344,8 @@ async function cargarMaterias() {
         Agregar Apunte
       `;
 
-      btnAddApunte.onclick = () => {
+      btnAddApunte.onclick = (e) => {
+        e.stopPropagation();
         const modal = document.getElementById("modal-apunte");
         const modalMateriaId = document.getElementById("modal-apu-materia") as HTMLInputElement;
         const modalMateriaNombre = document.getElementById("modal-materia-nombre");
@@ -264,10 +357,142 @@ async function cargarMaterias() {
       };
 
       card.appendChild(btnAddApunte);
+      
+      // Hacer la tarjeta clickeable para ver apuntes
+      card.style.cursor = "pointer";
+      card.onclick = () => abrirModalVerApuntes(mat);
+
       container.appendChild(card);
     });
   } catch (err: any) {
     container.innerHTML = `<p style="color:var(--error)">Error: ${err}</p>`;
+    showToast(err.toString(), "error");
+  }
+}
+
+async function abrirModalVerApuntes(mat: Materia) {
+  const modal = document.getElementById("modal-ver-apuntes");
+  const modalMateriaNombre = document.getElementById("modal-ver-apuntes-materia-nombre");
+  const listaContenedor = document.getElementById("modal-ver-apuntes-lista");
+
+  if (!modal || !modalMateriaNombre || !listaContenedor) return;
+
+  modalMateriaNombre.textContent = `Materia: ${mat.nombre}`;
+  listaContenedor.innerHTML = `<p style="color:var(--text-secondary); text-align: center; padding: 2rem;">Cargando apuntes...</p>`;
+  modal.classList.add("active");
+
+  try {
+    const apuntes = await invoke<Apunte[]>("buscar_apunt_materia", { materiaCodigo: mat.codigo.toString() });
+
+    if (apuntes.length === 0) {
+      listaContenedor.innerHTML = `<p style="color:var(--text-secondary); text-align: center; padding: 2rem;">Todavía no tiene apuntes registrados.</p>`;
+      return;
+    }
+
+    listaContenedor.innerHTML = "";
+    apuntes.forEach(apunte => {
+      const item = document.createElement("div");
+      item.className = "recent-note-item";
+      item.style.cursor = "default";
+      item.style.padding = "1rem";
+      
+      const [datePart, timePart] = apunte.ult_modificacion.split(' ');
+      let formattedDate = apunte.ult_modificacion;
+      if (datePart && timePart) {
+        const dateParts = datePart.split('-');
+        if (dateParts.length === 3) {
+          formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]} ${timePart}`;
+        }
+      } else {
+        const dateParts = apunte.ult_modificacion.split('-');
+        if (dateParts.length === 3) {
+          formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+        }
+      }
+
+      item.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="recent-note-tema" title="${apunte.tema}" style="font-weight:600; font-size:1rem; color:var(--text-primary);">${apunte.tema}</span>
+          <span class="recent-note-fecha">${formattedDate}</span>
+        </div>
+      `;
+
+      const rutaDiv = document.createElement("div");
+      rutaDiv.style.cssText = "display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; gap: 1rem;";
+      
+      const rutaSpan = document.createElement("div");
+      rutaSpan.style.cssText = "font-size:0.85rem; color:var(--text-secondary); word-break:break-all; display:flex; align-items:center; gap:0.4rem;";
+      rutaSpan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          ${apunte.ruta}`;
+          
+      const btnAbrir = document.createElement("button");
+      btnAbrir.className = "btn-secondary";
+      btnAbrir.style.cssText = "padding: 0.3rem 0.8rem; font-size: 0.8rem; width: fit-content; white-space: nowrap;";
+      btnAbrir.textContent = "Abrir";
+      btnAbrir.onclick = async () => {
+        console.log(`Intentando abrir apunte en ruta: ${apunte.ruta}`);
+        try {
+          const content = await invoke<string>("abrir_apunte", { path: apunte.ruta });
+          console.log(`Contenido leído correctamente (${content.length} caracteres).`);
+          
+          const modal = document.getElementById("modal-ver-apuntes");
+          if (modal) modal.classList.remove("active");
+          
+          const views = document.querySelectorAll(".view");
+          views.forEach(v => v.classList.remove("active"));
+          document.getElementById("view-editor-apunte")?.classList.add("active");
+          
+          const titleEl = document.getElementById("view-title");
+          if (titleEl) titleEl.textContent = `Editando: ${apunte.tema}`;
+          
+          const editorTitle = document.getElementById("editor-title");
+          if (editorTitle) editorTitle.textContent = apunte.tema;
+
+          if (!editorInstancia) {
+            try {
+              editorInstancia = ace.edit("ace-editor");
+              editorInstancia.setTheme("ace/theme/chrome");
+              editorInstancia.session.setMode("ace/mode/markdown");
+              editorInstancia.setOptions({
+                fontSize: "14px",
+                wrap: true,
+                showPrintMargin: false,
+              });
+              console.log("Ace Editor inicializado correctamente de forma lazy.");
+            } catch (e) {
+              console.error("Error al inicializar Ace Editor:", e);
+            }
+          }
+
+          if (editorInstancia) {
+            console.log("Seteando valor en el editor...");
+            editorInstancia.setValue(content, -1);
+            setTimeout(() => {
+              editorInstancia.resize(true);
+              console.log("Resize forzado ejecutado en Ace Editor.");
+            }, 50);
+          } else {
+            console.error("editorInstancia es null, no se pudo establecer el valor.");
+          }
+          currentEditPath = apunte.ruta;
+          currentEditCodigo = apunte.codigo_apunte;
+          
+          const navBtns = document.querySelectorAll(".nav-btn");
+          navBtns.forEach(b => b.classList.remove("active"));
+        } catch (error: any) {
+          console.error("Error al abrir apunte:", error);
+          showToast(`Error al abrir apunte: ${error}`, "error");
+        }
+      };
+      
+      rutaDiv.appendChild(rutaSpan);
+      rutaDiv.appendChild(btnAbrir);
+      
+      item.appendChild(rutaDiv);
+      listaContenedor.appendChild(item);
+    });
+  } catch (err: any) {
+    listaContenedor.innerHTML = `<p style="color:var(--error); text-align: center; padding: 2rem;">Error al buscar apuntes: ${err}</p>`;
     showToast(err.toString(), "error");
   }
 }

@@ -1,6 +1,7 @@
 mod estructuras;
 use estructuras::{Apunte, Materia};
 use rusqlite::{Connection, Result};
+use std::fs;
 use std::fs::File;
 use std::path::Path;
 use std::sync::Mutex;
@@ -168,15 +169,16 @@ fn crear_apunte(
     let new_id = if next_id == 0 { 1 } else { next_id + 1 };
     let codigo_apunte = new_id as u32;
 
+    let nombre_archivo = format!("{}.md", tema);
+    let ruta_completa = Path::new(&ruta).join(nombre_archivo);
+    let _ = File::create(&ruta_completa).map_err(|e| format!("Error creando el archivo: {}", e))?;
+    let ruta = ruta_completa.to_str().unwrap(); //Se guarda la ruta completa, facilita la apertura
+
     db.execute(
         "INSERT INTO APUNTE (codigo_apunte, tema, materia_codigo, fecha_creacion, ruta, ult_modificacion) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         (&codigo_apunte, &tema, &materia_codigo, &fecha_creacion, &ruta, &ult_modificacion),
     )
     .map_err(|e| format!("Error registrando el apunte: {}", e))?;
-    // Debe crear el archivo en la ruta especificada
-    let nombre_archivo = format!("{}.md", tema);
-    let ruta_completa = Path::new(&ruta).join(nombre_archivo);
-    let _ = File::create(&ruta_completa).map_err(|e| format!("Error creando el archivo: {}", e))?;
     Ok("Apunte registrado exitosamente.".to_string())
 }
 
@@ -209,6 +211,82 @@ fn mostrar_ult_modif(state: State<'_, DbState>) -> Result<Vec<Apunte>, String> {
     Ok(result)
 }
 
+#[tauri::command]
+fn buscar_apunt_materia(
+    materia_codigo: String,
+    state: State<'_, DbState>,
+) -> Result<Vec<Apunte>, String> {
+    let mate_codigo = materia_codigo
+        .parse::<u32>()
+        .map_err(|_| "El código de la materia no es un número válido".to_string())?;
+    let db = state.db.lock().unwrap();
+    let mut apuntes_consulta = db
+        .prepare("SELECT codigo_apunte, materia_codigo, tema, ult_modificacion, ruta FROM APUNTE WHERE materia_codigo = ?1")
+        .map_err(|e| format!("No es posible crear el statement: {}", e))?;
+    let iterador = apuntes_consulta
+        .query_map([&mate_codigo], |registro| {
+            let codigo_val = registro.get::<usize, rusqlite::types::Value>(0)?;
+            let codigo_ap = match codigo_val {
+                //Codigo apunte
+                rusqlite::types::Value::Integer(i) => i as u32,
+                rusqlite::types::Value::Text(t) => t.parse().unwrap_or(0),
+                _ => 0,
+            };
+            let codigo_val = registro.get::<usize, rusqlite::types::Value>(1)?;
+            let codigo_mat = match codigo_val {
+                //Codigo materia
+                rusqlite::types::Value::Integer(i) => i as u32,
+                rusqlite::types::Value::Text(t) => t.parse().unwrap_or(0),
+                _ => 0,
+            };
+
+            Ok(Apunte {
+                tema: registro.get(2)?,
+                ult_modificacion: registro.get(3)?,
+                codigo_apunte: codigo_ap,
+                materia_codigo: codigo_mat,
+                fecha_creacion: "".to_string(),
+                ruta: registro.get(4)?,
+            })
+        })
+        .map_err(|e| format!("Error consultando apuntes: {}", e))?;
+
+    let mut result = Vec::new();
+    for apunte in iterador {
+        match apunte {
+            Ok(a) => result.push(a),
+            Err(e) => eprintln!("Error leyendo apunte: {}", e),
+        }
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+fn abrir_apunte(path: String) -> Result<String, String> {
+    eprintln!("Abriendo apunte: {}", path);
+    fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn guardar_apunte(
+    path: String,
+    content: String,
+    apunte_codigo: String,
+    state: State<'_, DbState>,
+    fecha_modif: String,
+) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let apunte_puro = apunte_codigo.parse::<u32>().unwrap();
+
+    db.execute(
+        "UPDATE APUNTE SET ult_modificacion = ?1 WHERE codigo_apunte = ?2",
+        (&fecha_modif, &apunte_puro),
+    )
+    .map_err(|e| e.to_string())?;
+    eprintln!("Guardando apunte y actualizando fecha_modif: {}", path);
+    fs::write(path, content).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db = inicio();
@@ -222,6 +300,9 @@ pub fn run() {
             mostrar_materias,
             crear_apunte,
             mostrar_ult_modif,
+            buscar_apunt_materia,
+            abrir_apunte,
+            guardar_apunte,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

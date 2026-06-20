@@ -21,25 +21,20 @@ export async function seleccionarRuta(directory: boolean = false): Promise<strin
 
 /**
  * Lee un archivo usando el backend de Tauri. 
- * (Conservado para futuras implementaciones).
  */
 export async function readFile(filePath: string): Promise<string | undefined> {
   try {
-    const response: any = await invoke("read_file", { targetFile: filePath });
-    return response.text_data;
+    const response = await invoke<string>("abrir_apunte", { path: filePath });
+    return response;
   } catch (error) {
     console.error("Error al leer el archivo:", error);
     return undefined;
   }
 }
 
-/**
- * Guarda contenido en un archivo usando el backend de Tauri.
- * (Conservado para futuras implementaciones).
- */
-export async function saveFile(savePath: string, data: string): Promise<boolean> {
+export async function saveFile(savePath: string, data: string, apunteCodigo: string, fechaModif: string): Promise<boolean> {
   try {
-    await invoke("save_file", { savePath: savePath, markdownTextData: data });
+    await invoke("guardar_apunte", { path: savePath, content: data, apunteCodigo, fechaModif });
     return true;
   } catch (error) {
     console.error("Error al guardar el archivo:", error);
