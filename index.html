@@ -52,14 +52,6 @@
         <ul id="recent-notes-list" class="recent-notes-list">
           <!-- Populated by JS -->
         </ul>
-        <button class="btn-accent" id="btn-ver-todos-apuntes">
-          Ver Apuntes
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14" />
-            <path d="m12 5 7 7-7 7" />
-          </svg>
-        </button>
       </div>
 
       <div class="calendar-widget glass-panel">
@@ -89,7 +81,11 @@
 
     <main class="main-content">
       <header class="topbar">
-        <h1 id="view-title">Materias</h1>
+        <h1 id="view-title" style="display: none;">Materias</h1>
+        <div id="topbar-tabs" class="topbar-tabs">
+          <button class="topbar-tab active" data-tab-target="view-materias">Materias</button>
+          <button class="topbar-tab" data-tab-target="view-recordatorios">Recordatorios</button>
+        </div>
       </header>
 
       <div class="content-area">
@@ -141,6 +137,65 @@
           </div>
         </section>
 
+        <!-- View: Recordatorios -->
+        <section id="view-recordatorios" class="view fade-in">
+          <div class="recordatorios-layout">
+            <!-- Columna Izquierda: Formulario -->
+            <div class="card glass-panel form-column">
+              <h3>Nuevo Recordatorio</h3>
+              <form id="form-evento" class="modern-form">
+                <div class="form-group">
+                  <label for="evt-nombre">Título del Evento</label>
+                  <input type="text" id="evt-nombre" required placeholder="Ej. Parcial de Álgebra" />
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="evt-fecha">Fecha (DD/MM/YYYY)</label>
+                    <input type="text" id="evt-fecha" required placeholder="Ej. 23/06/2026" />
+                  </div>
+                  <div class="form-group">
+                    <label for="evt-hora">Hora (HH:MM)</label>
+                    <input type="text" id="evt-hora" placeholder="Ej. 18:30 (Opcional)" />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="evt-descripcion">Descripción (Opcional)</label>
+                  <input type="text" id="evt-descripcion" placeholder="Detalles adicionales..." />
+                </div>
+
+                <div class="form-group">
+                  <label for="evt-recordar">Avisarme...</label>
+                  <select id="evt-recordar" required>
+                    <option value="0">1 hora antes</option>
+                    <option value="1">1 día antes</option>
+                    <option value="2">1 semana antes</option>
+                    <option value="3">1 mes antes</option>
+                  </select>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                  Crear Recordatorio
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </button>
+              </form>
+            </div>
+
+            <!-- Columna Derecha: Listado -->
+            <div class="card glass-panel list-column">
+              <h3 style="margin-bottom: 1rem;">Próximos Eventos</h3>
+              <div id="view-recordatorios-lista" class="recent-notes-list" style="max-height: 100%; overflow-y: auto; padding-right: 0.5rem;">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- View: Nuevo Apunte -->
         <section id="view-nuevo-apunte" class="view">
           <div class="card glass-panel">
@@ -161,9 +216,9 @@
 
               <div class="form-group">
                 <label for="apu-ruta">Ruta al archivo / link</label>
-                <div style="display:flex; gap: 0.5rem;">
-                  <input type="text" id="apu-ruta" required placeholder="/ruta/al/documento.pdf" style="flex:1;" />
-                  <button type="button" class="btn-secondary" id="btn-select-ruta" style="padding: 0.5rem;"
+                <div style="display:flex; gap: 0.5rem; align-items: center;">
+                  <input type="text" id="apu-ruta" required placeholder="/ruta/al/documento.pdf" style="flex:1; width: 100%;" />
+                  <button type="button" class="btn-secondary" id="btn-select-ruta" style="padding: 0.5rem; width: auto; flex-shrink: 0;"
                     title="Seleccionar archivo">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -235,9 +290,9 @@
         </div>
         <div class="form-group">
           <label for="modal-apu-ruta">Ruta al archivo / link</label>
-          <div style="display:flex; gap: 0.5rem;">
-            <input type="text" id="modal-apu-ruta" required placeholder="/ruta/al/documento.pdf" style="flex:1;" />
-            <button type="button" class="btn-secondary" id="btn-modal-select-ruta" style="padding: 0.5rem;"
+          <div style="display:flex; gap: 0.5rem; align-items: center;">
+            <input type="text" id="modal-apu-ruta" required placeholder="/ruta/al/documento.pdf" style="flex:1; width: 100%;" />
+            <button type="button" class="btn-secondary" id="btn-modal-select-ruta" style="padding: 0.5rem; width: auto; flex-shrink: 0;"
               title="Seleccionar archivo">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

@@ -1,17 +1,21 @@
 :root {
-  --bg-color: #f4f1ea; /* Soft paper */
+  --bg-color: #f4f1ea;
+  /* Soft paper */
   --bg-secondary: #e8e4d9;
-  --text-primary: #2c2a29; /* Dark ink */
+  --text-primary: #2c2a29;
+  /* Dark ink */
   --text-secondary: #6e6862;
-  --accent: #2c4c3b; /* Classic library green */
+  --accent: #2c4c3b;
+  /* Classic library green */
   --accent-hover: #1a3326;
   --accent-glow: rgba(44, 76, 59, 0.2);
   --success: #3c7a52;
   --error: #a8423f;
-  --panel-bg: #ffffff; /* Clean paper */
+  --panel-bg: #ffffff;
+  /* Clean paper */
   --panel-border: #dcd7c8;
   --shadow-color: rgba(44, 42, 41, 0.08);
-  
+
   --font-sans: 'Inter', sans-serif;
   --font-serif: 'Lora', serif;
 }
@@ -29,7 +33,7 @@ body {
   height: 100vh;
   overflow: hidden;
   /* Subtle paper texture using CSS radial gradients */
-  background-image: 
+  background-image:
     radial-gradient(circle at 100% 0%, #ffffff 0%, transparent 40%),
     radial-gradient(circle at 0% 100%, #e8e4d9 0%, transparent 60%);
 }
@@ -38,8 +42,9 @@ body {
   /* Renamed concept but keeping class name to avoid HTML rewrite overhead */
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
-  box-shadow: 0 4px 12px var(--shadow-color), 0 1px 2px rgba(0,0,0,0.05);
-  border-radius: 8px; /* Slightly less rounded for a paper/card look */
+  box-shadow: 0 4px 12px var(--shadow-color), 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  /* Slightly less rounded for a paper/card look */
 }
 
 .app-container {
@@ -56,7 +61,7 @@ body {
   padding: 2rem 1.5rem;
   background-color: #f9f8f4;
   border-right: 2px solid #d4cebc;
-  box-shadow: 2px 0 10px rgba(0,0,0,0.03);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03);
   z-index: 10;
   overflow-y: auto;
 }
@@ -133,7 +138,7 @@ body {
   top: 0;
   bottom: 0;
   width: 10px;
-  background: linear-gradient(to right, rgba(0,0,0,0.05) 0%, transparent 100%);
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.05) 0%, transparent 100%);
   z-index: 5;
   pointer-events: none;
 }
@@ -151,6 +156,34 @@ body {
   font-size: 1.8rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.topbar-tabs {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.topbar-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding-bottom: 0.3rem;
+  transition: all 0.2s ease;
+}
+
+.topbar-tab:hover {
+  color: var(--text-primary);
+}
+
+.topbar-tab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
 }
 
 .content-area {
@@ -179,6 +212,7 @@ body {
     opacity: 0;
     transform: translateY(5px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -191,14 +225,14 @@ body {
   max-width: 650px;
   background: #ffffff;
   /* Paper stack effect */
-  box-shadow: 
-    0 1px 3px rgba(0,0,0,0.08),
-    0 4px 6px rgba(0,0,0,0.04),
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 6px rgba(0, 0, 0, 0.04),
     0 0 0 1px var(--panel-border);
   position: relative;
 }
 
-.card > * {
+.card>* {
   position: relative;
   z-index: 1;
 }
@@ -247,17 +281,20 @@ input[type="text"],
 input[type="number"],
 input[type="date"],
 select {
+  width: 100%;
   background: #fdfdfc;
   border: 1px solid var(--panel-border);
-  border-bottom: 2px solid var(--panel-border); /* Stronger bottom border for "write here" feel */
+  border-bottom: 2px solid var(--panel-border);
+  /* Stronger bottom border for "write here" feel */
   color: var(--text-primary);
   padding: 0.75rem 1rem;
   border-radius: 4px;
-  font-family: var(--font-serif); /* Inputs feel like handwriting/typewriter */
+  font-family: var(--font-serif);
+  /* Inputs feel like handwriting/typewriter */
   font-size: 1rem;
   transition: all 0.2s ease;
   outline: none;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 input::placeholder {
@@ -307,7 +344,7 @@ select:focus {
   background-color: #d1cbb8;
   transition: .3s;
   border-radius: 24px;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .slider:before {
@@ -320,7 +357,7 @@ select:focus {
   background-color: white;
   transition: .3s;
   border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 input:checked+.slider {
@@ -349,13 +386,13 @@ input:checked+.slider:before {
   gap: 0.5rem;
   transition: all 0.2s ease;
   margin-top: 1rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .btn-primary:active {
@@ -372,10 +409,12 @@ input:checked+.slider:before {
 
 .materia-card {
   padding: 1.5rem;
-  border-radius: 4px; /* More squared like a card */
+  border-radius: 4px;
+  /* More squared like a card */
   background: #ffffff;
   border: 1px solid var(--panel-border);
-  border-top: 4px solid var(--accent); /* Color coding top */
+  border-top: 4px solid var(--accent);
+  /* Color coding top */
   box-shadow: 0 2px 5px var(--shadow-color);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   display: flex;
@@ -390,7 +429,7 @@ input:checked+.slider:before {
 
 .materia-card:hover {
   transform: translateY(-3px) rotate(0.5deg);
-  box-shadow: 0 8px 15px rgba(0,0,0,0.08);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.08);
   border-color: #c9c3b0;
 }
 
@@ -402,7 +441,8 @@ input:checked+.slider:before {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: #ffffff; /* Cover the lines behind text */
+  background: #ffffff;
+  /* Cover the lines behind text */
   padding: 0 4px;
   margin-left: -4px;
   display: inline-block;
@@ -434,6 +474,24 @@ input:checked+.slider:before {
   border-color: rgba(168, 66, 63, 0.2);
 }
 
+/* Layout para Recordatorios */
+.recordatorios-layout {
+  display: flex;
+  gap: 2rem;
+  height: 100%;
+}
+
+.recordatorios-layout .form-column {
+  flex: 1;
+  max-width: 500px;
+}
+
+.recordatorios-layout .list-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Toast System */
 .toast-container {
   position: fixed;
@@ -455,9 +513,9 @@ input:checked+.slider:before {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   animation: slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .toast.success {
@@ -475,6 +533,7 @@ input:checked+.slider:before {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -486,6 +545,7 @@ input:checked+.slider:before {
     transform: translateX(0);
     opacity: 1;
   }
+
   to {
     transform: translateX(120%);
     opacity: 0;
@@ -499,7 +559,7 @@ input:checked+.slider:before {
   border-radius: 8px;
   background: #ffffff;
   border: 1px solid var(--panel-border);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02), 0 1px 2px var(--shadow-color);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02), 0 1px 2px var(--shadow-color);
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
@@ -546,6 +606,20 @@ input:checked+.slider:before {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 0.4rem;
+}
+
+.recent-notes-list::-webkit-scrollbar {
+  width: 4px;
+}
+.recent-notes-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.recent-notes-list::-webkit-scrollbar-thumb {
+  background-color: var(--panel-border);
+  border-radius: 4px;
 }
 
 .recent-note-item {
@@ -593,7 +667,7 @@ input:checked+.slider:before {
   border-radius: 8px;
   background: #ffffff;
   border: 1px solid var(--panel-border);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02), 0 1px 2px var(--shadow-color);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02), 0 1px 2px var(--shadow-color);
 }
 
 .calendar-header {
@@ -622,8 +696,8 @@ input:checked+.slider:before {
 
 .icon-btn:hover {
   color: var(--text-primary);
-  background: rgba(0,0,0,0.05);
-  border-color: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 .calendar-days {
@@ -656,6 +730,16 @@ input:checked+.slider:before {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  position: relative; /* Add position relative to place dot absolutely */
+}
+
+.event-dot {
+  position: absolute;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--accent);
 }
 
 .calendar-date:hover {
@@ -671,7 +755,8 @@ input:checked+.slider:before {
   background: var(--accent);
   color: white;
   font-weight: 600;
-  border-radius: 50%; /* Make today stand out with a circle like marked with a pen */
+  border-radius: 50%;
+  /* Make today stand out with a circle like marked with a pen */
   transform: scale(0.9);
   box-shadow: 0 2px 4px var(--accent-glow);
 }
@@ -705,9 +790,10 @@ input:checked+.slider:before {
   width: 100%;
   max-width: 550px;
   margin: 1rem;
-  background: #ffffff; /* Clean paper for modal */
+  background: #ffffff;
+  /* Clean paper for modal */
   border: 1px solid var(--panel-border);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
 }
 
@@ -741,4 +827,111 @@ input:checked+.slider:before {
 
 .btn-secondary:active {
   background: #dcd7c8;
+}
+
+/* Responsive adjustments for smaller screen heights */
+@media (max-height: 900px) {
+  .sidebar {
+    padding: 1.5rem 1rem;
+  }
+
+  .logo p {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.8rem;
+  }
+
+  .recent-notes-widget,
+  .calendar-widget {
+    margin-top: 0.8rem;
+    padding: 1rem;
+  }
+
+  .nav-btn {
+    padding: 0.6rem 0.8rem;
+  }
+
+  .recent-note-item {
+    padding: 0.3rem 0.5rem;
+  }
+}
+
+@media (max-height: 750px) {
+  .sidebar {
+    padding: 0.8rem;
+  }
+
+  .logo h2 {
+    font-size: 1.5rem;
+  }
+
+  .logo p {
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .nav-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .nav-menu {
+    gap: 0.2rem;
+  }
+
+  .recent-notes-widget,
+  .calendar-widget {
+    margin-top: 0.5rem;
+    padding: 0.6rem;
+    gap: 0.4rem;
+  }
+
+  .widget-title {
+    font-size: 0.9rem;
+    margin-bottom: 0;
+  }
+
+  .recent-note-item {
+    padding: 0.1rem 0.4rem;
+  }
+
+  .recent-notes-list {
+    max-height: 90px;
+  }
+
+  .recent-note-tema {
+    font-size: 0.8rem;
+  }
+
+  .recent-note-fecha {
+    font-size: 0.65rem;
+  }
+
+  .btn-accent {
+    padding: 0.4rem;
+    font-size: 0.8rem;
+    margin-top: 0.2rem;
+  }
+
+  .calendar-header {
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+  }
+
+  .calendar-days {
+    margin-bottom: 0.2rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .calendar-grid {
+    gap: 1px;
+  }
+
+  .calendar-date {
+    font-size: 0.7rem;
+  }
+
+  .icon-btn {
+    padding: 0.1rem;
+  }
 }

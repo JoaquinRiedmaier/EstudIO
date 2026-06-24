@@ -18,3 +18,13 @@ pub struct Apunte {
     pub tema: String,
     pub ruta: String,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Evento {
+    pub codigo_evento: u32,     // Identificador
+    pub fecha: String,          //Obligatorio, importante para recordarle al usuario
+    pub hora: String,           //Opcional
+    pub fecha_recordar: String, // Cuanto antes? semana, dia mes?
+    pub nombre: String,         //Obligatorio
+    pub descripcion: String,    //Opcional
+}
