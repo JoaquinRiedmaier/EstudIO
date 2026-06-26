@@ -5,3 +5,5 @@ Básicamente, virtualizamos tu escritorio y te facilitamos el seguimiento de tar
 Usa:
   1) Tauri (RUST) + Vanilla TS
   2) Archivos .md, para permitir texto e imagenes
+
+  Para compilar: NO_STRIP=true pnpm tauri build

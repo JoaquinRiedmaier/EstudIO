@@ -349,25 +349,7 @@ function setupModal() {
     });
   }
 
-  const btnVerEventos = document.getElementById("btn-ver-todos-eventos");
-  const modalVerEventos = document.getElementById("modal-ver-eventos");
-  const closeModalVerEventosBtn = document.getElementById("close-modal-ver-eventos");
 
-  if (btnVerEventos && modalVerEventos && closeModalVerEventosBtn) {
-    btnVerEventos.addEventListener("click", () => {
-      abrirModalVerEventos();
-    });
-
-    closeModalVerEventosBtn.addEventListener("click", () => {
-      modalVerEventos.classList.remove("active");
-    });
-
-    modalVerEventos.addEventListener("click", (e) => {
-      if (e.target === modalVerEventos) {
-        modalVerEventos.classList.remove("active");
-      }
-    });
-  }
 
   if (modalVerApuntes && closeModalVerApuntesBtn) {
     closeModalVerApuntesBtn.addEventListener("click", () => {
