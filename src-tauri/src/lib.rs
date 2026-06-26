@@ -343,20 +343,20 @@ fn mostrar_eventos(
     let db = state.db.lock().unwrap();
     let mut eventos_consulta = db
         .prepare(
-            "SELECT fecha, hora, nombre, descripcion, fecha_recordar FROM EVENTO WHERE fecha || ' ' || COALESCE(hora, '00:00') BETWEEN ?1 AND ?2 ORDER BY fecha, COALESCE(hora, '00:00') LIMIT 5 OFFSET ?3",
+            "SELECT codigo_evento, fecha, hora, nombre, descripcion, fecha_recordar FROM EVENTO WHERE fecha || ' ' || COALESCE(hora, '00:00') BETWEEN ?1 AND ?2 ORDER BY fecha, COALESCE(hora, '00:00') LIMIT 5 OFFSET ?3",
         )
         .map_err(|e| format!("No es posible mostrar eventos: {}", e))?;
     let iterador = eventos_consulta
         .query_map([fecha_inicio, fecha_fin, offset.to_string()], |registro| {
-            let hora: Option<String> = registro.get(1)?;
-            let descripcion: Option<String> = registro.get(3)?;
+            let hora: Option<String> = registro.get(2)?;
+            let descripcion: Option<String> = registro.get(4)?;
 
             Ok(Evento {
-                codigo_evento: 0,
-                fecha: registro.get(0)?,
+                codigo_evento: registro.get(0)?,
+                fecha: registro.get(1)?,
                 hora: hora.unwrap_or_default(),
-                fecha_recordar: "".to_string(),
-                nombre: registro.get(2)?,
+                fecha_recordar: registro.get(5)?,
+                nombre: registro.get(3)?,
                 descripcion: descripcion.unwrap_or_default(),
             })
         })

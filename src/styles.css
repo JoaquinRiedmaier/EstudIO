@@ -24,6 +24,9 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  /* Fix for text anti-aliasing issues during transforms/animations and ace editor */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -421,10 +424,6 @@ input:checked+.slider:before {
   flex-direction: column;
   gap: 0.8rem;
   position: relative;
-  /* Add subtle background lines like an index card */
-  background-image: repeating-linear-gradient(transparent, transparent 27px, rgba(44, 76, 59, 0.05) 28px);
-  background-size: 100% 28px;
-  background-position: 0 10px;
 }
 
 .materia-card:hover {
