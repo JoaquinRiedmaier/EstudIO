@@ -3,7 +3,7 @@ use chrono::{Duration, NaiveDateTime};
 use estructuras::{Apunte, Evento, Materia};
 use rusqlite::{Connection, Result};
 use std::fs;
-use std::fs::File;
+use std::fs::OpenOptions;
 use std::path::Path;
 use std::sync::Mutex;
 use tauri::{Manager, State};
@@ -195,7 +195,11 @@ fn crear_apunte(
 
     let nombre_archivo = format!("{}.md", tema);
     let ruta_completa = Path::new(&ruta).join(nombre_archivo);
-    let _ = File::create(&ruta_completa).map_err(|e| format!("Error creando el archivo: {}", e))?;
+    let _ = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(&ruta_completa)
+        .map_err(|e| format!("Error creando el archivo: {}", e))?;
     let ruta = ruta_completa.to_str().unwrap(); //Se guarda la ruta completa, facilita la apertura
 
     db.execute(
