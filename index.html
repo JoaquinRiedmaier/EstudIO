@@ -257,9 +257,61 @@
                   Cerrar</button>
               </div>
             </div>
-            <!-- Ace Editor Container -->
-            <div id="ace-editor"
-              style="flex: 1; min-height: 400px; border: 1px solid var(--panel-border); border-radius: 4px;"></div>
+            <!-- Editor Toolbar -->
+            <div id="editor-toolbar" class="editor-toolbar" style="display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem; background: var(--bg-color); border: 1px solid var(--panel-border); border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; align-items: center;">
+              <button type="button" class="toolbar-btn" data-command="bold" title="Negrita">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 12a4 4 0 0 0 0-8H6v8"/><path d="M15 20a4 4 0 0 0 0-8H6v8Z"/></svg>
+              </button>
+              <button type="button" class="toolbar-btn" data-command="italic" title="Cursiva">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+              </button>
+              <button type="button" class="toolbar-btn" data-command="strike" title="Tachado">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4H9a3 3 0 0 0-2.83 4H14a4 4 0 0 1 0 8H7a3 3 0 0 1-2.5-1"/><line x1="4" y1="12" x2="20" y2="12"/></svg>
+              </button>
+              <button type="button" class="toolbar-btn" data-command="code" title="Código Inline">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              </button>
+              <div class="toolbar-divider" style="width: 1px; height: 1.5rem; background: var(--panel-border); margin: 0 0.25rem;"></div>
+              <!-- Highlight group -->
+              <div class="toolbar-group highlight-group" style="display: flex; align-items: center; gap: 0.25rem; border: 1px solid var(--panel-border); border-radius: 4px; padding: 0.1rem 0.25rem; background: var(--bg-color);">
+                <button type="button" class="toolbar-btn" data-command="highlight" title="Resaltar Texto" style="width: 24px; height: 24px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                </button>
+                <div class="color-palette" style="display: flex; gap: 0.15rem; align-items: center;">
+                  <button type="button" class="color-swatch" data-color="#fef08a" style="background-color: #fef08a; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); cursor: pointer; padding: 0;" title="Amarillo"></button>
+                  <button type="button" class="color-swatch" data-color="#bbf7d0" style="background-color: #bbf7d0; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); cursor: pointer; padding: 0;" title="Verde"></button>
+                  <button type="button" class="color-swatch" data-color="#bfdbfe" style="background-color: #bfdbfe; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); cursor: pointer; padding: 0;" title="Azul"></button>
+                  <button type="button" class="color-swatch" data-color="#fbcfe8" style="background-color: #fbcfe8; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); cursor: pointer; padding: 0;" title="Rosa"></button>
+                  <button type="button" class="color-swatch" data-color="#fed7aa" style="background-color: #fed7aa; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); cursor: pointer; padding: 0;" title="Naranja"></button>
+                </div>
+              </div>
+              <div class="toolbar-divider" style="width: 1px; height: 1.5rem; background: var(--panel-border); margin: 0 0.25rem;"></div>
+              <button type="button" class="toolbar-btn text-btn" data-command="h1" title="Título 1" style="font-weight: 700; font-family: var(--font-sans); font-size: 0.85rem;">H1</button>
+              <button type="button" class="toolbar-btn text-btn" data-command="h2" title="Título 2" style="font-weight: 700; font-family: var(--font-sans); font-size: 0.85rem;">H2</button>
+              <button type="button" class="toolbar-btn text-btn" data-command="h3" title="Título 3" style="font-weight: 700; font-family: var(--font-sans); font-size: 0.85rem;">H3</button>
+              <button type="button" class="toolbar-btn text-btn" data-command="paragraph" title="Párrafo" style="font-weight: 700; font-family: var(--font-sans); font-size: 0.85rem;">P</button>
+              <div class="toolbar-divider" style="width: 1px; height: 1.5rem; background: var(--panel-border); margin: 0 0.25rem;"></div>
+              <button type="button" class="toolbar-btn" data-command="bulletList" title="Lista con Viñetas">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+              <button type="button" class="toolbar-btn" data-command="orderedList" title="Lista Numerada">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
+              </button>
+              <button type="button" class="toolbar-btn" data-command="blockquote" title="Bloque de Cita">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6h3a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Zm-12 0h3a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z"/><path d="M16 11c0 2.67-1.33 4.67-4 6"/><path d="M5 11c0 2.67-1.33 4.67-4 6"/></svg>
+              </button>
+              <button type="button" class="toolbar-btn text-btn" data-command="horizontalRule" title="Línea Divisoria" style="font-weight: 700; font-family: var(--font-sans); font-size: 0.85rem;">HR</button>
+              <div class="toolbar-divider" style="width: 1px; height: 1.5rem; background: var(--panel-border); margin: 0 0.25rem;"></div>
+              <button type="button" class="toolbar-btn" data-command="undo" title="Deshacer">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+              </button>
+              <button type="button" class="toolbar-btn" data-command="redo" title="Rehacer">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+              </button>
+            </div>
+            <!-- Tiptap Editor Container -->
+            <div id="tiptap-editor"
+              style="flex: 1; min-height: 400px; border: 1px solid var(--panel-border); border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; display: flex; flex-direction: column; overflow: hidden; background: #ffffff;"></div>
           </div>
         </section>
 

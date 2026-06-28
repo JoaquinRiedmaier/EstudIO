@@ -1,9 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { seleccionarRuta } from "./file";
-import ace from "ace-builds";
-import "ace-builds/src-noconflict/mode-markdown";
-import "ace-builds/src-noconflict/theme-chrome";
+import { Editor } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import Highlight from "@tiptap/extension-highlight";
+import { marked } from "marked";
+import TurndownService from "turndown";
+
+const turndownService = new TurndownService({ headingStyle: "atx" });
+turndownService.keep(["mark"]);
 
 // Define Interfaces
 interface Materia {
@@ -36,10 +41,11 @@ interface Evento {
 let materiasCache: Materia[] = [];
 let eventosCache: Evento[] = [];
 let currentCalendarDate = new Date();
-let editorInstancia: any = null;
+let editorInstancia: Editor | null = null;
 let currentEditPath: string = "";
 let currentEditCodigo: number | null = null;
 let materiaToDelete: string | null = null;
+let selectedHighlightColor: string = "#fef08a";
 
 // DOM Elements
 document.addEventListener("DOMContentLoaded", () => {
@@ -74,8 +80,12 @@ function setupNavigation() {
         if (topbarTabs) topbarTabs.style.display = "flex";
 
         // Reset to first tab
-        document.querySelectorAll(".topbar-tab").forEach(t => t.classList.remove("active"));
-        document.querySelector(".topbar-tab[data-tab-target='view-materias']")?.classList.add("active");
+        document
+          .querySelectorAll(".topbar-tab")
+          .forEach((t) => t.classList.remove("active"));
+        document
+          .querySelector(".topbar-tab[data-tab-target='view-materias']")
+          ?.classList.add("active");
 
         cargarMaterias();
       } else {
@@ -95,7 +105,7 @@ function setupNavigation() {
   const topTabs = document.querySelectorAll(".topbar-tab");
   topTabs.forEach((tab) => {
     tab.addEventListener("click", () => {
-      topTabs.forEach(t => t.classList.remove("active"));
+      topTabs.forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
 
       const targetId = tab.getAttribute("data-tab-target");
@@ -198,15 +208,24 @@ function setupForms() {
   const formEvento = document.getElementById("form-evento");
   formEvento?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const nombre = (document.getElementById("evt-nombre") as HTMLInputElement).value;
-    let fecha = (document.getElementById("evt-fecha") as HTMLInputElement).value;
+    const nombre = (document.getElementById("evt-nombre") as HTMLInputElement)
+      .value;
+    let fecha = (document.getElementById("evt-fecha") as HTMLInputElement)
+      .value;
     let hora = (document.getElementById("evt-hora") as HTMLInputElement).value;
-    const descripcion = (document.getElementById("evt-descripcion") as HTMLInputElement).value;
-    const opcionRecordar = parseInt((document.getElementById("evt-recordar") as HTMLSelectElement).value);
+    const descripcion = (
+      document.getElementById("evt-descripcion") as HTMLInputElement
+    ).value;
+    const opcionRecordar = parseInt(
+      (document.getElementById("evt-recordar") as HTMLSelectElement).value,
+    );
 
     if (!hora) {
       if (opcionRecordar === 0) {
-        showToast("Ingresa una hora si queres que se te recuerde una hora antes", "error");
+        showToast(
+          "Ingresa una hora si queres que se te recuerde una hora antes",
+          "error",
+        );
         return;
       }
       hora = "08:00";
@@ -215,7 +234,10 @@ function setupForms() {
     const fParts = fecha.split("/");
     if (fParts.length === 2 || fParts.length === 3) {
       if (fParts[0].length !== 2 || fParts[1].length !== 2) {
-        showToast("El día y el mes deben tener 2 dígitos (ej. 06/05/2026)", "error");
+        showToast(
+          "El día y el mes deben tener 2 dígitos (ej. 06/05/2026)",
+          "error",
+        );
         return;
       }
       let year = new Date().getFullYear().toString();
@@ -235,7 +257,7 @@ function setupForms() {
         fecha,
         hora,
         descripcion,
-        opcionRecordar
+        opcionRecordar,
       });
       showToast("Recordatorio creado exitosamente.", "success");
       (formEvento as HTMLFormElement).reset();
@@ -274,12 +296,169 @@ function setupEditor() {
     const exito = await guardarApunteActual();
     if (exito) cerrarEditor();
   });
+
+  // Connect toolbar buttons
+  const toolbar = document.getElementById("editor-toolbar");
+  if (toolbar) {
+    const buttons = toolbar.querySelectorAll(".toolbar-btn");
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!editorInstancia) return;
+        const command = btn.getAttribute("data-command");
+        if (!command) return;
+
+        let chain = editorInstancia.chain().focus();
+        
+        switch (command) {
+          case "bold":
+            chain.toggleBold().run();
+            break;
+          case "italic":
+            chain.toggleItalic().run();
+            break;
+          case "strike":
+            chain.toggleStrike().run();
+            break;
+          case "code":
+            chain.toggleCode().run();
+            break;
+          case "highlight":
+            chain.toggleHighlight({ color: selectedHighlightColor }).run();
+            break;
+          case "h1":
+            chain.toggleHeading({ level: 1 }).run();
+            break;
+          case "h2":
+            chain.toggleHeading({ level: 2 }).run();
+            break;
+          case "h3":
+            chain.toggleHeading({ level: 3 }).run();
+            break;
+          case "paragraph":
+            chain.setParagraph().run();
+            break;
+          case "bulletList":
+            chain.toggleBulletList().run();
+            break;
+          case "orderedList":
+            chain.toggleOrderedList().run();
+            break;
+          case "blockquote":
+            chain.toggleBlockquote().run();
+            break;
+          case "horizontalRule":
+            chain.setHorizontalRule().run();
+            break;
+          case "undo":
+            chain.undo().run();
+            break;
+          case "redo":
+            chain.redo().run();
+            break;
+        }
+      });
+    });
+
+    const swatches = toolbar.querySelectorAll(".color-swatch");
+    swatches.forEach((swatch) => {
+      swatch.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!editorInstancia) return;
+        const color = swatch.getAttribute("data-color");
+        if (color) {
+          selectedHighlightColor = color;
+          editorInstancia.chain().focus().setHighlight({ color }).run();
+          updateToolbarActiveStates();
+        }
+      });
+    });
+  }
+}
+
+function updateToolbarActiveStates() {
+  const editor = editorInstancia;
+  if (!editor) return;
+  const toolbar = document.getElementById("editor-toolbar");
+  if (!toolbar) return;
+
+  const buttons = toolbar.querySelectorAll(".toolbar-btn");
+  buttons.forEach((btn) => {
+    const command = btn.getAttribute("data-command");
+    if (!command) return;
+
+    let isActive = false;
+    switch (command) {
+      case "bold":
+        isActive = editor.isActive("bold");
+        break;
+      case "italic":
+        isActive = editor.isActive("italic");
+        break;
+      case "strike":
+        isActive = editor.isActive("strike");
+        break;
+      case "code":
+        isActive = editor.isActive("code");
+        break;
+      case "highlight":
+        isActive = editor.isActive("highlight");
+        break;
+      case "h1":
+        isActive = editor.isActive("heading", { level: 1 });
+        break;
+      case "h2":
+        isActive = editor.isActive("heading", { level: 2 });
+        break;
+      case "h3":
+        isActive = editor.isActive("heading", { level: 3 });
+        break;
+      case "paragraph":
+        isActive = editor.isActive("paragraph");
+        break;
+      case "bulletList":
+        isActive = editor.isActive("bulletList");
+        break;
+      case "orderedList":
+        isActive = editor.isActive("orderedList");
+        break;
+      case "blockquote":
+        isActive = editor.isActive("blockquote");
+        break;
+    }
+
+    if (isActive) {
+      btn.classList.add("is-active");
+    } else {
+      btn.classList.remove("is-active");
+    }
+  });
+
+  // Update selected highlight color swatch styling
+  const isHighlightActive = editor.isActive("highlight");
+  const highlightAttrs = editor.getAttributes("highlight");
+  let currentColor = selectedHighlightColor;
+  if (isHighlightActive && highlightAttrs && highlightAttrs.color) {
+    currentColor = highlightAttrs.color;
+  }
+
+  const swatches = toolbar.querySelectorAll(".color-swatch");
+  swatches.forEach((swatch) => {
+    const color = swatch.getAttribute("data-color");
+    if (color === currentColor) {
+      swatch.classList.add("is-selected");
+    } else {
+      swatch.classList.remove("is-selected");
+    }
+  });
 }
 
 function cerrarEditor() {
   currentEditPath = "";
   currentEditCodigo = null;
-  if (editorInstancia) editorInstancia.setValue("", -1);
+  if (editorInstancia) {
+    editorInstancia.commands.setContent("");
+  }
 
   const views = document.querySelectorAll(".view");
   views.forEach((v) => v.classList.remove("active"));
@@ -301,7 +480,8 @@ async function guardarApunteActual(): Promise<boolean> {
   if (!currentEditPath || !editorInstancia || currentEditCodigo === null)
     return false;
   try {
-    const content = editorInstancia.getValue();
+    const htmlContent = editorInstancia.getHTML();
+    const content = turndownService.turndown(htmlContent);
 
     const now = new Date();
     const year = now.getFullYear();
@@ -349,8 +529,6 @@ function setupModal() {
     });
   }
 
-
-
   if (modalVerApuntes && closeModalVerApuntesBtn) {
     closeModalVerApuntesBtn.addEventListener("click", () => {
       modalVerApuntes.classList.remove("active");
@@ -363,11 +541,21 @@ function setupModal() {
     });
   }
 
-  const modalConfirmDeleteMateria = document.getElementById("modal-confirm-delete-materia");
-  const btnCancelDeleteMateria = document.getElementById("btn-cancel-delete-materia");
-  const btnConfirmDeleteMateria = document.getElementById("btn-confirm-delete-materia");
+  const modalConfirmDeleteMateria = document.getElementById(
+    "modal-confirm-delete-materia",
+  );
+  const btnCancelDeleteMateria = document.getElementById(
+    "btn-cancel-delete-materia",
+  );
+  const btnConfirmDeleteMateria = document.getElementById(
+    "btn-confirm-delete-materia",
+  );
 
-  if (modalConfirmDeleteMateria && btnCancelDeleteMateria && btnConfirmDeleteMateria) {
+  if (
+    modalConfirmDeleteMateria &&
+    btnCancelDeleteMateria &&
+    btnConfirmDeleteMateria
+  ) {
     btnCancelDeleteMateria.addEventListener("click", () => {
       modalConfirmDeleteMateria.classList.remove("active");
       materiaToDelete = null;
@@ -542,7 +730,9 @@ async function cargarMaterias() {
       btnBorrarMateria.onclick = (e) => {
         e.stopPropagation();
         materiaToDelete = mat.codigo.toString();
-        const modalConfirmDelete = document.getElementById("modal-confirm-delete-materia");
+        const modalConfirmDelete = document.getElementById(
+          "modal-confirm-delete-materia",
+        );
         if (modalConfirmDelete) modalConfirmDelete.classList.add("active");
       };
 
@@ -641,10 +831,16 @@ async function abrirModalVerApuntes(mat: Materia) {
       btnBorrar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`;
       btnBorrar.onclick = async (e) => {
         e.stopPropagation();
-        const userConfirmed = await confirm(`¿Estás seguro de que deseas borrar el apunte "${apunte.tema}"?`, { title: 'Borrar Apunte', kind: 'warning' });
+        const userConfirmed = await confirm(
+          `¿Estás seguro de que deseas borrar el apunte "${apunte.tema}"?`,
+          { title: "Borrar Apunte", kind: "warning" },
+        );
         if (userConfirmed) {
           try {
-            await invoke("borrar_apunte", { codigoApunte: apunte.codigo_apunte.toString(), ruta: apunte.ruta });
+            await invoke("borrar_apunte", {
+              codigoApunte: apunte.codigo_apunte.toString(),
+              ruta: apunte.ruta,
+            });
             showToast("Apunte borrado exitosamente.", "success");
             abrirModalVerApuntes(mat);
             cargarUltimosModificados();
@@ -672,11 +868,18 @@ async function abrirModalVerApuntes(mat: Materia) {
   }
 }
 
-async function fetchEventos(fechaInicio: string, fechaFin: string): Promise<Evento[]> {
+async function fetchEventos(
+  fechaInicio: string,
+  fechaFin: string,
+): Promise<Evento[]> {
   let allEvents: Evento[] = [];
   let offset = 0;
-  while(true) {
-    const batch = await invoke<Evento[]>("mostrar_eventos", { offset, fechaInicio, fechaFin });
+  while (true) {
+    const batch = await invoke<Evento[]>("mostrar_eventos", {
+      offset,
+      fechaInicio,
+      fechaFin,
+    });
     allEvents.push(...batch);
     if (batch.length < 25) break;
     offset += 25;
@@ -703,7 +906,8 @@ async function cargarRecordatorios(fechaFiltro?: string) {
     if (eventos.length === 0) return;
 
     const secTitle = document.createElement("h4");
-    secTitle.style.cssText = "font-family: var(--font-serif); font-size: 0.95rem; color: var(--accent); margin: 1rem 0 0.5rem 0; border-bottom: 1px solid var(--panel-border); padding-bottom: 0.2rem;";
+    secTitle.style.cssText =
+      "font-family: var(--font-serif); font-size: 0.95rem; color: var(--accent); margin: 1rem 0 0.5rem 0; border-bottom: 1px solid var(--panel-border); padding-bottom: 0.2rem;";
     secTitle.textContent = title;
     listaContenedor.appendChild(secTitle);
 
@@ -729,7 +933,8 @@ async function cargarRecordatorios(fechaFiltro?: string) {
 
       if (evento.descripcion) {
         const descDiv = document.createElement("div");
-        descDiv.style.cssText = "font-size:0.85rem; color:var(--text-secondary); margin-top:0.4rem;";
+        descDiv.style.cssText =
+          "font-size:0.85rem; color:var(--text-secondary); margin-top:0.4rem;";
         descDiv.textContent = evento.descripcion;
         item.appendChild(descDiv);
       }
@@ -747,10 +952,15 @@ async function cargarRecordatorios(fechaFiltro?: string) {
       btnBorrar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Borrar`;
       btnBorrar.onclick = async (e) => {
         e.stopPropagation();
-        const userConfirmed = await confirm(`¿Estás seguro de que deseas borrar el recordatorio "${evento.nombre}"?`, { title: 'Borrar Recordatorio', kind: 'warning' });
+        const userConfirmed = await confirm(
+          `¿Estás seguro de que deseas borrar el recordatorio "${evento.nombre}"?`,
+          { title: "Borrar Recordatorio", kind: "warning" },
+        );
         if (userConfirmed) {
           try {
-            await invoke("borrar_evento", { codigoEvento: evento.codigo_evento.toString() });
+            await invoke("borrar_evento", {
+              codigoEvento: evento.codigo_evento.toString(),
+            });
             showToast("Recordatorio borrado exitosamente.", "success");
             cargarRecordatorios(fechaFiltro);
             renderCalendar();
@@ -776,20 +986,25 @@ async function cargarRecordatorios(fechaFiltro?: string) {
 
       const btnClear = document.createElement("button");
       btnClear.className = "btn-secondary";
-      btnClear.style.cssText = "margin-bottom: 1rem; width: 100%; display: flex; justify-content: center; gap: 0.5rem; align-items: center;";
+      btnClear.style.cssText =
+        "margin-bottom: 1rem; width: 100%; display: flex; justify-content: center; gap: 0.5rem; align-items: center;";
       btnClear.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> Volver a todos los eventos`;
       btnClear.onclick = () => cargarRecordatorios();
       listaContenedor.appendChild(btnClear);
 
       if (eventosDia.length === 0) {
         const p = document.createElement("p");
-        p.style.cssText = "color:var(--text-secondary); text-align: center; padding: 2rem;";
+        p.style.cssText =
+          "color:var(--text-secondary); text-align: center; padding: 2rem;";
         const parts = fechaFiltro.split("/");
         p.textContent = `No hay eventos programados para el ${parts[2]}/${parts[1]}/${parts[0]}.`;
         listaContenedor.appendChild(p);
       } else {
         const parts = fechaFiltro.split("/");
-        renderSection(`Eventos del ${parts[2]}/${parts[1]}/${parts[0]}`, eventosDia);
+        renderSection(
+          `Eventos del ${parts[2]}/${parts[1]}/${parts[0]}`,
+          eventosDia,
+        );
       }
       return;
     }
@@ -799,12 +1014,15 @@ async function cargarRecordatorios(fechaFiltro?: string) {
     const hInicio = getFormattedDateString(today, false);
     const hFin = getFormattedDateString(today, true);
 
-    const d1 = new Date(today); d1.setDate(d1.getDate() + 1);
-    const d7 = new Date(today); d7.setDate(d7.getDate() + 7);
+    const d1 = new Date(today);
+    d1.setDate(d1.getDate() + 1);
+    const d7 = new Date(today);
+    d7.setDate(d7.getDate() + 7);
     const pInicio = getFormattedDateString(d1, false);
     const pFin = getFormattedDateString(d7, true);
 
-    const d8 = new Date(today); d8.setDate(d8.getDate() + 8);
+    const d8 = new Date(today);
+    d8.setDate(d8.getDate() + 8);
     const dLast = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     const mInicio = getFormattedDateString(d8, false);
     const mFin = getFormattedDateString(dLast, true);
@@ -816,15 +1034,19 @@ async function cargarRecordatorios(fechaFiltro?: string) {
 
     let eventosMes: Evento[] = [];
     if (d8.getMonth() === today.getMonth()) {
-        eventosMes = await fetchEventos(mInicio, mFin);
+      eventosMes = await fetchEventos(mInicio, mFin);
     }
 
     const recordatoriosProgramados: Evento[] = [];
     const extract = (eventos: Evento[]) => {
-      return eventos.filter(ev => {
+      return eventos.filter((ev) => {
         if (ev.fecha_recordar && ev.fecha_recordar.startsWith(todayStr)) {
           // Si ya existe en recordatoriosProgramados, no duplicarlo
-          if (!recordatoriosProgramados.some(r => r.codigo_evento === ev.codigo_evento)) {
+          if (
+            !recordatoriosProgramados.some(
+              (r) => r.codigo_evento === ev.codigo_evento,
+            )
+          ) {
             recordatoriosProgramados.push(ev);
           }
           return false; // Remover de la lista original
@@ -837,7 +1059,12 @@ async function cargarRecordatorios(fechaFiltro?: string) {
     eventos7dias = extract(eventos7dias);
     eventosMes = extract(eventosMes);
 
-    if (recordatoriosProgramados.length === 0 && eventosHoy.length === 0 && eventos7dias.length === 0 && eventosMes.length === 0) {
+    if (
+      recordatoriosProgramados.length === 0 &&
+      eventosHoy.length === 0 &&
+      eventos7dias.length === 0 &&
+      eventosMes.length === 0
+    ) {
       listaContenedor.innerHTML = `<p style="color:var(--text-secondary); text-align: center; padding: 2rem;">No hay eventos programados.</p>`;
       return;
     }
@@ -848,13 +1075,11 @@ async function cargarRecordatorios(fechaFiltro?: string) {
     renderSection("Hoy", eventosHoy);
     renderSection("Próximos 7 días", eventos7dias);
     renderSection("En el mes", eventosMes);
-
   } catch (err: any) {
     listaContenedor.innerHTML = `<p style="color:var(--error); text-align: center; padding: 2rem;">Error al cargar eventos: ${err}</p>`;
     showToast(err.toString(), "error");
   }
 }
-
 
 async function cargarSelectorMaterias() {
   const select = document.getElementById("apu-materia") as HTMLSelectElement;
@@ -996,7 +1221,7 @@ async function renderCalendar() {
     const monthStr = String(month + 1).padStart(2, "0");
     const dateStr = `${year}/${monthStr}/${dayStr}`;
 
-    const hasEvent = eventosCache.some(ev => ev.fecha === dateStr);
+    const hasEvent = eventosCache.some((ev) => ev.fecha === dateStr);
 
     dateEl.textContent = i.toString();
     if (hasEvent) {
@@ -1004,14 +1229,16 @@ async function renderCalendar() {
       dot.className = "event-dot";
       dateEl.appendChild(dot);
     }
-    
+
     // Add click event to filter recordatorios
     dateEl.style.cursor = "pointer";
     dateEl.onclick = () => {
       // 1. Activate main nav 'Materias'
       const navBtns = document.querySelectorAll(".nav-btn");
       navBtns.forEach((b) => b.classList.remove("active"));
-      const btnMaterias = document.querySelector(".nav-btn[data-target='view-materias']");
+      const btnMaterias = document.querySelector(
+        ".nav-btn[data-target='view-materias']",
+      );
       if (btnMaterias) btnMaterias.classList.add("active");
 
       const titleEl = document.getElementById("view-title");
@@ -1021,8 +1248,10 @@ async function renderCalendar() {
 
       // 2. Activate specific tab 'Recordatorios'
       const topTabs = document.querySelectorAll(".topbar-tab");
-      topTabs.forEach(t => t.classList.remove("active"));
-      const recordatoriosTab = document.querySelector(".topbar-tab[data-tab-target='view-recordatorios']");
+      topTabs.forEach((t) => t.classList.remove("active"));
+      const recordatoriosTab = document.querySelector(
+        ".topbar-tab[data-tab-target='view-recordatorios']",
+      );
       if (recordatoriosTab) recordatoriosTab.classList.add("active");
 
       // 3. Activate the view
@@ -1095,9 +1324,7 @@ async function cargarUltimosModificados() {
     console.error("Error cargando apuntes recientes", err);
     container.innerHTML = `<li style="font-size: 0.8rem; color: var(--error);">Error al cargar.</li>`;
   }
-}
-
-async function abrirEditor(apunte: Apunte) {
+}async function abrirEditor(apunte: Apunte) {
   console.log(`Intentando abrir apunte en ruta: ${apunte.ruta}`);
   try {
     const content = await invoke<string>("abrir_apunte", { path: apunte.ruta });
@@ -1120,27 +1347,30 @@ async function abrirEditor(apunte: Apunte) {
 
     if (!editorInstancia) {
       try {
-        editorInstancia = ace.edit("ace-editor");
-        editorInstancia.setTheme("ace/theme/chrome");
-        editorInstancia.session.setMode("ace/mode/markdown");
-        editorInstancia.setOptions({
-          fontSize: "14px",
-          wrap: true,
-          showPrintMargin: false,
-        });
-        console.log("Ace Editor inicializado correctamente de forma lazy.");
+        const container = document.getElementById("tiptap-editor");
+        if (container) {
+          editorInstancia = new Editor({
+            element: container,
+            extensions: [
+              StarterKit,
+              Highlight.configure({ multicolor: true }),
+            ],
+            content: "",
+            onTransaction: () => {
+              updateToolbarActiveStates();
+            }
+          });
+          console.log("Tiptap Editor inicializado correctamente.");
+        }
       } catch (e) {
-        console.error("Error al inicializar Ace Editor:", e);
+        console.error("Error al inicializar Tiptap Editor:", e);
       }
     }
 
     if (editorInstancia) {
       console.log("Seteando valor en el editor...");
-      editorInstancia.setValue(content, -1);
-      setTimeout(() => {
-        editorInstancia.resize(true);
-        console.log("Resize forzado ejecutado en Ace Editor.");
-      }, 50);
+      const htmlContent = await marked.parse(content);
+      editorInstancia.commands.setContent(htmlContent);
     } else {
       console.error("editorInstancia es null, no se pudo establecer el valor.");
     }

@@ -6,7 +6,9 @@ import { invoke } from "@tauri-apps/api/core";
  * @param directory - Si es true, permite seleccionar una carpeta en lugar de un archivo.
  * @returns La ruta seleccionada o undefined si se canceló.
  */
-export async function seleccionarRuta(directory: boolean = false): Promise<string | undefined> {
+export async function seleccionarRuta(
+  directory: boolean = false,
+): Promise<string | undefined> {
   try {
     const selectedPath = await open({
       directory: directory,
@@ -20,7 +22,7 @@ export async function seleccionarRuta(directory: boolean = false): Promise<strin
 }
 
 /**
- * Lee un archivo usando el backend de Tauri. 
+ * Lee un archivo usando el backend de Tauri.
  */
 export async function readFile(filePath: string): Promise<string | undefined> {
   try {
@@ -32,9 +34,19 @@ export async function readFile(filePath: string): Promise<string | undefined> {
   }
 }
 
-export async function saveFile(savePath: string, data: string, apunteCodigo: string, fechaModif: string): Promise<boolean> {
+export async function saveFile(
+  savePath: string,
+  data: string,
+  apunteCodigo: string,
+  fechaModif: string,
+): Promise<boolean> {
   try {
-    await invoke("guardar_apunte", { path: savePath, content: data, apunteCodigo, fechaModif });
+    await invoke("guardar_apunte", {
+      path: savePath,
+      content: data,
+      apunteCodigo,
+      fechaModif,
+    });
     return true;
   } catch (error) {
     console.error("Error al guardar el archivo:", error);
