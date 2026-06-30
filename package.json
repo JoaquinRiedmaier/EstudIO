@@ -1,7 +1,7 @@
 {
   "name": "EstudIO",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,6 +15,8 @@
     "@tauri-apps/plugin-opener": "^2",
     "@tiptap/core": "^3.27.1",
     "@tiptap/extension-highlight": "^3.27.1",
+    "@tiptap/extension-image": "^3.27.1",
+    "@tiptap/markdown": "^3.27.1",
     "@tiptap/starter-kit": "^3.27.1",
     "marked": "^18.0.5",
     "turndown": "^7.2.4"

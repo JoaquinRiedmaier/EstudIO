@@ -895,7 +895,7 @@ input:checked+.slider:before {
   }
 
   .recent-notes-list {
-    max-height: 90px;
+    max-height: 120px;
   }
 
   .recent-note-tema {
@@ -1088,6 +1088,15 @@ input:checked+.slider:before {
   margin: 2rem 0;
 }
 
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+  margin: 1.5rem auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
 .ProseMirror p.is-editor-empty:first-child::before {
   color: #a39c93;
   content: attr(data-placeholder);
@@ -1118,4 +1127,204 @@ input:checked+.slider:before {
   color: inherit;
   border-radius: 2px;
   padding: 0.1rem 0.2rem;
+}
+
+/* Reminders Sidebar Panel on the right */
+.reminders-panel {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1.5rem;
+  background-color: #f9f8f4;
+  border-left: 2px solid #d4cebc;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.03);
+  z-index: 10;
+  overflow-y: auto;
+}
+
+.reminders-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reminders-count-badge {
+  background: var(--accent);
+  color: white;
+  border-radius: 12px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+}
+
+.today-reminder-item {
+  padding: 0.8rem;
+  background: #ffffff;
+  border: 1px solid var(--panel-border);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  box-shadow: 0 2px 4px var(--shadow-color);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.today-reminder-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-color);
+}
+
+.today-reminder-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.today-reminder-time {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.today-reminder-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  border-top: 1px dashed var(--panel-border);
+  padding-top: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+/* Shadow separation between main-content and reminders-panel */
+.main-content.has-reminders::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.05) 0%, transparent 100%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Responsive adjustments for reminders-panel */
+@media (max-height: 900px) {
+  .reminders-panel {
+    padding: 1.5rem 1rem;
+    width: 260px;
+  }
+  
+  .reminders-subtitle {
+    margin-bottom: 1rem !important;
+  }
+}
+
+@media (max-height: 750px) {
+  .reminders-panel {
+    padding: 0.8rem;
+    width: 220px;
+  }
+  
+  .reminders-header h3 {
+    font-size: 1.1rem !important;
+  }
+  
+  .reminders-subtitle {
+    margin-bottom: 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .today-reminder-item {
+    padding: 0.5rem;
+  }
+  
+  .today-reminder-title {
+    font-size: 0.85rem;
+  }
+}
+
+/* Specific styling to make the view notes modal larger and show more notes */
+#modal-ver-apuntes .modal-content {
+  max-width: 850px;
+  width: 90%;
+}
+
+#modal-ver-apuntes-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  max-height: 60vh;
+  margin-top: 0.5rem;
+}
+
+#modal-ver-apuntes-lista .recent-note-item {
+  background: var(--bg-color);
+  border: 1px solid var(--panel-border);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 0;
+  cursor: default;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+#modal-ver-apuntes-lista .recent-note-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px var(--shadow-color);
+  background: #ffffff;
+}
+
+/* Sidebar Toggling Styles */
+.app-container.sidebar-collapsed .sidebar {
+  display: none;
+}
+
+.btn-toggle-sidebar {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-sidebar:hover {
+  background: rgba(44, 76, 59, 0.08);
+  color: var(--text-primary);
+  border-color: rgba(44, 76, 59, 0.15);
+}
+
+@media (max-width: 960px) {
+  /* Automatically hide sidebar when editing on half-screen sizes */
+  .app-container.editor-mode .sidebar {
+    display: none;
+  }
+  
+  /* Allow manual override to show it on small screens */
+  .app-container.editor-mode.sidebar-visible .sidebar {
+    display: flex;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
+  }
 }

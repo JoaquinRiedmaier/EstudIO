@@ -1,8 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { seleccionarRuta } from "./file";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
+import { Markdown } from "@tiptap/markdown";
 import Highlight from "@tiptap/extension-highlight";
 import { marked } from "marked";
 import TurndownService from "turndown";
@@ -56,6 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEditor();
   cargarUltimosModificados();
   cargarMaterias();
+  cargarRecordatoriosHoy();
 });
 
 function setupNavigation() {
@@ -99,6 +102,7 @@ function setupNavigation() {
           cargarSelectorMaterias();
         }
       }
+      cargarRecordatoriosHoy();
     });
   });
 
@@ -117,6 +121,7 @@ function setupNavigation() {
       } else if (targetId === "view-recordatorios") {
         cargarRecordatorios();
       }
+      cargarRecordatoriosHoy();
     });
   });
 }
@@ -263,6 +268,7 @@ function setupForms() {
       (formEvento as HTMLFormElement).reset();
       cargarRecordatorios();
       renderCalendar(); // Actualizar puntitos
+      cargarRecordatoriosHoy();
     } catch (err: any) {
       showToast(err.toString(), "error");
     }
@@ -283,6 +289,7 @@ function setupEditor() {
   const btnCerrar = document.getElementById("btn-editor-cerrar");
   const btnGuardar = document.getElementById("btn-editor-guardar");
   const btnGuardarCerrar = document.getElementById("btn-editor-guardar-cerrar");
+  const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
 
   btnCerrar?.addEventListener("click", () => {
     cerrarEditor();
@@ -297,6 +304,19 @@ function setupEditor() {
     if (exito) cerrarEditor();
   });
 
+  btnToggleSidebar?.addEventListener("click", () => {
+    const container = document.querySelector(".app-container");
+    if (!container) return;
+
+    if (window.innerWidth <= 960) {
+      container.classList.toggle("sidebar-visible");
+      container.classList.remove("sidebar-collapsed");
+    } else {
+      container.classList.toggle("sidebar-collapsed");
+      container.classList.remove("sidebar-visible");
+    }
+  });
+
   // Connect toolbar buttons
   const toolbar = document.getElementById("editor-toolbar");
   if (toolbar) {
@@ -309,7 +329,7 @@ function setupEditor() {
         if (!command) return;
 
         let chain = editorInstancia.chain().focus();
-        
+
         switch (command) {
           case "bold":
             chain.toggleBold().run();
@@ -346,6 +366,31 @@ function setupEditor() {
             break;
           case "blockquote":
             chain.toggleBlockquote().run();
+            break;
+          case "image":
+            (async () => {
+              try {
+                const path = await seleccionarRuta(false);
+                if (!path) return;
+                
+                const rutaRelativa = await invoke<string>("incorporar_imagenes", {
+                  rutaImg: path,
+                  rutaApunte: currentEditPath,
+                });
+                
+                const lastSlash = Math.max(currentEditPath.lastIndexOf("/"), currentEditPath.lastIndexOf("\\"));
+                const parentDir = lastSlash !== -1 ? currentEditPath.substring(0, lastSlash) : "";
+                const absolutePath = parentDir ? `${parentDir}/${rutaRelativa}` : rutaRelativa;
+                
+                const assetUrl = convertFileSrc(absolutePath);
+                
+                editorInstancia.chain().focus().setImage({ src: assetUrl }).run();
+                showToast("Imagen agregada correctamente", "success");
+              } catch (error: any) {
+                console.error("Error al insertar imagen:", error);
+                showToast(`Error al insertar imagen: ${error}`, "error");
+              }
+            })();
             break;
           case "horizontalRule":
             chain.setHorizontalRule().run();
@@ -460,6 +505,13 @@ function cerrarEditor() {
     editorInstancia.commands.setContent("");
   }
 
+  const appContainer = document.querySelector(".app-container");
+  if (appContainer) {
+    appContainer.classList.remove("editor-mode");
+    appContainer.classList.remove("sidebar-collapsed");
+    appContainer.classList.remove("sidebar-visible");
+  }
+
   const views = document.querySelectorAll(".view");
   views.forEach((v) => v.classList.remove("active"));
   document.getElementById("view-materias")?.classList.add("active");
@@ -474,6 +526,8 @@ function cerrarEditor() {
       b.classList.add("active");
     }
   });
+
+  cargarRecordatoriosHoy();
 }
 
 async function guardarApunteActual(): Promise<boolean> {
@@ -481,7 +535,22 @@ async function guardarApunteActual(): Promise<boolean> {
     return false;
   try {
     const htmlContent = editorInstancia.getHTML();
-    const content = turndownService.turndown(htmlContent);
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, "text/html");
+    const imgs = doc.querySelectorAll("img");
+    imgs.forEach((img) => {
+      const src = img.getAttribute("src");
+      if (src) {
+        const idx = src.indexOf(".recursos/");
+        if (idx !== -1) {
+          img.setAttribute("src", src.substring(idx));
+        }
+      }
+    });
+    const finalHtml = doc.body.innerHTML;
+    
+    const content = turndownService.turndown(finalHtml);
 
     const now = new Date();
     const year = now.getFullYear();
@@ -881,8 +950,8 @@ async function fetchEventos(
       fechaFin,
     });
     allEvents.push(...batch);
-    if (batch.length < 25) break;
-    offset += 25;
+    if (batch.length < 5) break;
+    offset += 5;
   }
   return allEvents;
 }
@@ -964,6 +1033,7 @@ async function cargarRecordatorios(fechaFiltro?: string) {
             showToast("Recordatorio borrado exitosamente.", "success");
             cargarRecordatorios(fechaFiltro);
             renderCalendar();
+            cargarRecordatoriosHoy();
           } catch (err: any) {
             showToast(err.toString(), "error");
           }
@@ -1078,6 +1148,90 @@ async function cargarRecordatorios(fechaFiltro?: string) {
   } catch (err: any) {
     listaContenedor.innerHTML = `<p style="color:var(--error); text-align: center; padding: 2rem;">Error al cargar eventos: ${err}</p>`;
     showToast(err.toString(), "error");
+  }
+}
+
+async function cargarRecordatoriosHoy() {
+  const panel = document.getElementById("today-reminders-panel");
+  const listContenedor = document.getElementById("today-reminders-list");
+  const countBadge = document.getElementById("today-reminders-count");
+  const mainContent = document.querySelector(".main-content");
+
+  if (!panel || !listContenedor || !countBadge || !mainContent) return;
+
+  const editorView = document.getElementById("view-editor-apunte");
+  const isEditorActive = editorView?.classList.contains("active");
+
+  if (isEditorActive) {
+    panel.style.display = "none";
+    mainContent.classList.remove("has-reminders");
+    return;
+  }
+
+  try {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const d = String(today.getDate()).padStart(2, "0");
+    const todayStr = `${y}/${m}/${d}`;
+
+    const limitDate = new Date(today);
+    limitDate.setDate(limitDate.getDate() + 35);
+
+    const fInicio = getFormattedDateString(today, false);
+    const fFin = getFormattedDateString(limitDate, true);
+
+    const eventos = await fetchEventos(fInicio, fFin);
+
+    const recordatoriosHoy = eventos.filter((ev) => {
+      return ev.fecha_recordar && ev.fecha_recordar.startsWith(todayStr);
+    });
+
+    if (recordatoriosHoy.length === 0) {
+      panel.style.display = "none";
+      mainContent.classList.remove("has-reminders");
+      return;
+    }
+
+    panel.style.display = "flex";
+    mainContent.classList.add("has-reminders");
+    countBadge.textContent = recordatoriosHoy.length.toString();
+
+    listContenedor.innerHTML = "";
+    recordatoriosHoy.forEach((evento) => {
+      const card = document.createElement("div");
+      card.className = "today-reminder-item";
+
+      const timeStr = evento.hora ? ` a las ${evento.hora}` : "";
+      const fParts = evento.fecha.split("/");
+      let displayDate = evento.fecha;
+      if (fParts.length === 3) {
+        displayDate = `${fParts[2]}/${fParts[1]}/${fParts[0]}`;
+      }
+
+      card.innerHTML = `
+        <div class="today-reminder-title">${evento.nombre}</div>
+        <div class="today-reminder-time">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>
+          </svg>
+          ${displayDate}${timeStr}
+        </div>
+      `;
+
+      if (evento.descripcion) {
+        const descDiv = document.createElement("div");
+        descDiv.className = "today-reminder-desc";
+        descDiv.textContent = evento.descripcion;
+        card.appendChild(descDiv);
+      }
+
+      listContenedor.appendChild(card);
+    });
+  } catch (err) {
+    console.error("Error loading today's reminders:", err);
+    panel.style.display = "none";
+    mainContent.classList.remove("has-reminders");
   }
 }
 
@@ -1324,7 +1478,8 @@ async function cargarUltimosModificados() {
     console.error("Error cargando apuntes recientes", err);
     container.innerHTML = `<li style="font-size: 0.8rem; color: var(--error);">Error al cargar.</li>`;
   }
-}async function abrirEditor(apunte: Apunte) {
+}
+async function abrirEditor(apunte: Apunte) {
   console.log(`Intentando abrir apunte en ruta: ${apunte.ruta}`);
   try {
     const content = await invoke<string>("abrir_apunte", { path: apunte.ruta });
@@ -1338,6 +1493,13 @@ async function cargarUltimosModificados() {
     const views = document.querySelectorAll(".view");
     views.forEach((v) => v.classList.remove("active"));
     document.getElementById("view-editor-apunte")?.classList.add("active");
+
+    const appContainer = document.querySelector(".app-container");
+    if (appContainer) {
+      appContainer.classList.add("editor-mode");
+    }
+
+    cargarRecordatoriosHoy();
 
     const titleEl = document.getElementById("view-title");
     if (titleEl) titleEl.textContent = `Editando: ${apunte.tema}`;
@@ -1354,11 +1516,13 @@ async function cargarUltimosModificados() {
             extensions: [
               StarterKit,
               Highlight.configure({ multicolor: true }),
+              Image,
+              Markdown,
             ],
             content: "",
             onTransaction: () => {
               updateToolbarActiveStates();
-            }
+            },
           });
           console.log("Tiptap Editor inicializado correctamente.");
         }
@@ -1370,7 +1534,24 @@ async function cargarUltimosModificados() {
     if (editorInstancia) {
       console.log("Seteando valor en el editor...");
       const htmlContent = await marked.parse(content);
-      editorInstancia.commands.setContent(htmlContent);
+      
+      const lastSlash = Math.max(apunte.ruta.lastIndexOf("/"), apunte.ruta.lastIndexOf("\\"));
+      const parentDir = lastSlash !== -1 ? apunte.ruta.substring(0, lastSlash) : "";
+      
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlContent, "text/html");
+      const imgs = doc.querySelectorAll("img");
+      imgs.forEach((img) => {
+        const src = img.getAttribute("src");
+        if (src && src.startsWith(".recursos/")) {
+          const absolutePath = parentDir ? `${parentDir}/${src}` : src;
+          const assetUrl = convertFileSrc(absolutePath);
+          img.setAttribute("src", assetUrl);
+        }
+      });
+      const finalHtmlContent = doc.body.innerHTML;
+      
+      editorInstancia.commands.setContent(finalHtmlContent);
     } else {
       console.error("editorInstancia es null, no se pudo establecer el valor.");
     }
