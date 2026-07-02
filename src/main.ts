@@ -1,6 +1,6 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { readImage, readText } from "@tauri-apps/plugin-clipboard-manager";
+import { readImage } from "@tauri-apps/plugin-clipboard-manager";
 import { seleccionarRuta } from "./file";
 import { Editor, Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
@@ -71,8 +71,19 @@ const CustomPasteExtension = Extension.create({
       new Plugin({
         key: new PluginKey("customPasteHandler"),
         props: {
-          handlePaste(view, event, _slice) {
+          handlePaste(_view, event, _slice) {
             console.log("CustomPasteExtension: Interceptando evento de pegado");
+
+            // Si hay texto o HTML en el portapapeles, delegamos al comportamiento nativo de ProseMirror/TipTap
+            if (event.clipboardData) {
+              const types = event.clipboardData.types;
+              if (types.includes("text/plain") || types.includes("text/html")) {
+                console.log("Detectado texto/HTML en el portapapeles, delegando a TipTap");
+                return false;
+              }
+            }
+
+            // Si no hay texto/HTML, asumimos que es una imagen e intentamos pegarla vía Tauri
             event.preventDefault();
             event.stopImmediatePropagation();
 
@@ -128,16 +139,7 @@ const CustomPasteExtension = Extension.create({
                 // Close the image resource to free memory
                 await clipboardImage.close();
               } catch (error: any) {
-                console.log("No se pudo leer una imagen del portapapeles, intentando texto...", error);
-                try {
-                  const text = await readText();
-                  if (text) {
-                    console.log("Texto del portapapeles leído, reinyectando...");
-                    view.dispatch(view.state.tr.insertText(text));
-                  }
-                } catch (textErr) {
-                  console.error("Error al leer texto del portapapeles:", textErr);
-                }
+                console.error("Error al pegar imagen desde Tauri:", error);
               }
             })();
 
