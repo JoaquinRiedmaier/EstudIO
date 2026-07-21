@@ -20,9 +20,8 @@
     "@tiptap/markdown": "^3.27.1",
     "@tiptap/pm": "^3.27.1",
     "@tiptap/starter-kit": "^3.27.1",
+    "jspdf": "^2.5.1",
     "html2canvas": "^1.4.1",
-    "html2pdf.js": "^0.14.0",
-    "jspdf": "^4.2.1",
     "marked": "^18.0.5",
     "turndown": "^7.2.4"
   },

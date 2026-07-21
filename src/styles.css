@@ -403,6 +403,44 @@ input:checked+.slider:before {
   box-shadow: none;
 }
 
+/* PDF Export Button */
+.btn-pdf {
+  background: #7c3d2d;
+  color: white;
+  border: 1px solid #5c2d20;
+  padding: 0.8rem 1.5rem;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  margin-top: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-pdf:hover {
+  background: #5c2d20;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-pdf:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.btn-pdf:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* Grid Materias */
 .materias-grid {
   display: grid;
@@ -613,9 +651,11 @@ input:checked+.slider:before {
 .recent-notes-list::-webkit-scrollbar {
   width: 4px;
 }
+
 .recent-notes-list::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .recent-notes-list::-webkit-scrollbar-thumb {
   background-color: var(--panel-border);
   border-radius: 4px;
@@ -729,7 +769,8 @@ input:checked+.slider:before {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
-  position: relative; /* Add position relative to place dot absolutely */
+  position: relative;
+  /* Add position relative to place dot absolutely */
 }
 
 .event-dot {
@@ -1000,13 +1041,16 @@ input:checked+.slider:before {
 .ProseMirror::-webkit-scrollbar {
   width: 6px;
 }
+
 .ProseMirror::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .ProseMirror::-webkit-scrollbar-thumb {
   background-color: var(--panel-border);
   border-radius: 4px;
 }
+
 .ProseMirror::-webkit-scrollbar-thumb:hover {
   background-color: var(--text-secondary);
 }
@@ -1123,7 +1167,8 @@ input:checked+.slider:before {
 
 /* Custom Highlight colors inside the editor */
 .ProseMirror mark {
-  background-color: #fef08a; /* Default fallback */
+  background-color: #fef08a;
+  /* Default fallback */
   color: inherit;
   border-radius: 2px;
   padding: 0.1rem 0.2rem;
@@ -1220,7 +1265,7 @@ input:checked+.slider:before {
     padding: 1.5rem 1rem;
     width: 260px;
   }
-  
+
   .reminders-subtitle {
     margin-bottom: 1rem !important;
   }
@@ -1231,20 +1276,20 @@ input:checked+.slider:before {
     padding: 0.8rem;
     width: 220px;
   }
-  
+
   .reminders-header h3 {
     font-size: 1.1rem !important;
   }
-  
+
   .reminders-subtitle {
     margin-bottom: 0.5rem !important;
     font-size: 0.75rem !important;
   }
-  
+
   .today-reminder-item {
     padding: 0.5rem;
   }
-  
+
   .today-reminder-title {
     font-size: 0.85rem;
   }
@@ -1311,11 +1356,12 @@ input:checked+.slider:before {
 }
 
 @media (max-width: 960px) {
+
   /* Automatically hide sidebar when editing on half-screen sizes */
   .app-container.editor-mode .sidebar {
     display: none;
   }
-  
+
   /* Allow manual override to show it on small screens */
   .app-container.editor-mode.sidebar-visible .sidebar {
     display: flex;
@@ -1381,16 +1427,19 @@ input:checked+.slider:before {
   left: -5px;
   cursor: nwse-resize;
 }
+
 .ProseMirror [data-resize-handle="top-right"] {
   top: -5px;
   right: -5px;
   cursor: nesw-resize;
 }
+
 .ProseMirror [data-resize-handle="bottom-left"] {
   bottom: -5px;
   left: -5px;
   cursor: nesw-resize;
 }
+
 .ProseMirror [data-resize-handle="bottom-right"] {
   bottom: -5px;
   right: -5px;
@@ -1404,18 +1453,21 @@ input:checked+.slider:before {
   transform: translateX(-50%);
   cursor: ns-resize;
 }
+
 .ProseMirror [data-resize-handle="bottom"] {
   bottom: -5px;
   left: 50%;
   transform: translateX(-50%);
   cursor: ns-resize;
 }
+
 .ProseMirror [data-resize-handle="left"] {
   left: -5px;
   top: 50%;
   transform: translateY(-50%);
   cursor: ew-resize;
 }
+
 .ProseMirror [data-resize-handle="right"] {
   right: -5px;
   top: 50%;

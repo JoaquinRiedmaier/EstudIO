@@ -601,6 +601,15 @@ fn paste_imagen(ruta_apunte: String, imagen: String) -> Result<String, String> {
     Ok(relativa)
 }
 
+#[tauri::command]
+fn guardar_pdf(path: String, content_base64: String) -> Result<(), String> {
+    eprintln!("Guardando PDF en la ruta: {}", path);
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(content_base64)
+        .map_err(|e| e.to_string())?;
+    fs::write(path, bytes).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -628,6 +637,7 @@ pub fn run() {
             borrar_evento,
             incorporar_imagenes,
             paste_imagen,
+            guardar_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

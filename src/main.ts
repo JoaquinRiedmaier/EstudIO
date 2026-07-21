@@ -5,6 +5,10 @@ import { seleccionarRuta } from "./file";
 import { Editor, Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
+import { jsPDF } from "jspdf";
+// @ts-ignore
+import html2pdf from "html2pdf.js";
+
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { Markdown } from "@tiptap/markdown";
@@ -91,10 +95,10 @@ const CustomPasteExtension = Extension.create({
               try {
                 console.log("Intentando leer imagen desde el portapapeles de Tauri...");
                 const clipboardImage = await readImage();
-                
+
                 const size = await clipboardImage.size();
                 const rgbaBytes = await clipboardImage.rgba();
-                
+
                 // Convert RGBA bytes to Base64 using a temporary canvas
                 const canvas = document.createElement("canvas");
                 canvas.width = size.width;
@@ -103,11 +107,11 @@ const CustomPasteExtension = Extension.create({
                 if (!ctx) {
                   throw new Error("No se pudo obtener el contexto 2D del canvas");
                 }
-                
+
                 const imgData = ctx.createImageData(size.width, size.height);
                 imgData.data.set(rgbaBytes);
                 ctx.putImageData(imgData, 0, 0);
-                
+
                 const dataUrl = canvas.toDataURL("image/png");
                 const commaIdx = dataUrl.indexOf(",");
                 if (commaIdx === -1) {
@@ -407,6 +411,287 @@ function setupEditor() {
     const exito = await guardarApunteActual();
     if (exito) cerrarEditor();
   });
+
+  // ── Exportar como PDF ──────────────────────────────────────────────────────
+  const btnExportarPdf = document.getElementById("btn-editor-exportar-pdf") as HTMLButtonElement | null;
+  btnExportarPdf?.addEventListener("click", async () => {
+    if (!currentEditPath || !editorInstancia) {
+      showToast("No hay ningún apunte abierto para exportar", "error");
+      return;
+    }
+
+    await guardarApunteActual();
+
+    btnExportarPdf.disabled = true;
+    showToast("Generando PDF…", "success");
+
+    // Overlay visual mientras se genera el PDF
+    const overlay = document.createElement("div");
+    overlay.style.cssText = [
+      "position: fixed",
+      "top: 0",
+      "left: 0",
+      "right: 0",
+      "bottom: 0",
+      "background: rgba(44, 42, 41, 0.7)",
+      "backdrop-filter: blur(3px)",
+      "z-index: 1000000",
+      "display: flex",
+      "flex-direction: column",
+      "align-items: center",
+      "justify-content: center",
+      "color: #ffffff",
+      "font-family: var(--font-sans)",
+      "font-size: 1.1rem",
+      "font-weight: 600",
+      "gap: 0.8rem",
+    ].join("; ");
+    overlay.innerHTML = `
+      <div style="width: 36px; height: 36px; border: 3px solid rgba(255,255,255,0.3); border-top-color: #ffffff; border-radius: 50%; animation: spinPdf 0.8s linear infinite;"></div>
+      <div>Generando documento PDF…</div>
+      <style>@keyframes spinPdf { to { transform: rotate(360deg); } }</style>
+    `;
+    document.body.appendChild(overlay);
+
+    let container: HTMLElement | null = null;
+
+    try {
+      const editorEl = document.querySelector("#tiptap-editor .tiptap") as HTMLElement | null;
+      if (!editorEl) throw new Error("No se encontró el elemento del editor");
+
+      // 1. Clonar el contenido y convertir todas las imágenes a Base64
+      const clone = editorEl.cloneNode(true) as HTMLElement;
+      const imgOriginals = Array.from(editorEl.querySelectorAll("img")) as HTMLImageElement[];
+      const imgClones = Array.from(clone.querySelectorAll("img")) as HTMLImageElement[];
+
+      await Promise.all(
+        imgOriginals.map(async (origImg, i) => {
+          const cloneImg = imgClones[i];
+          if (!cloneImg) return;
+          try {
+            cloneImg.src = await imgToDataUrl(origImg.src);
+          } catch (e) {
+            console.warn("No se pudo convertir imagen a base64:", origImg.src, e);
+          }
+        })
+      );
+
+      // 2. Crear contenedor temporal A4 (ancho 750px) sin padding interno duplicado
+      container = document.createElement("div");
+      container.style.cssText = [
+        "position: absolute",
+        "top: 0",
+        "left: 0",
+        "width: 750px",
+        "background: #ffffff",
+        "color: #1a1a1a",
+        "font-family: 'Inter', system-ui, -apple-system, sans-serif",
+        "font-size: 11pt",
+        "line-height: 1.6",
+        "padding: 0px",
+        "margin: 0px",
+        "box-sizing: border-box",
+        "z-index: 999999",
+        "pointer-events: none",
+        "overflow: visible",
+      ].join("; ");
+
+      // Aplicar inline styles
+      inlineEditorStyles(clone);
+
+      container.appendChild(clone);
+      document.body.appendChild(container);
+
+      // Pequeña pausa para asegurar renderizado en el DOM
+      await new Promise((r) => setTimeout(r, 150));
+
+      const pdfPath = currentEditPath.replace(/\.md$/i, ".pdf");
+      const fileName = pdfPath.split(/[\/\\]/).pop() ?? "apunte.pdf";
+
+      // 3. Crear documento jsPDF en pt (A4 = 595.28 pt x 841.89 pt)
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: "a4",
+      });
+
+      // Márgenes de 20pt en los 4 bordes. Ancho útil = 595.28 - 40 = 555.28 pt
+      const marginPt = 20;
+      const printWidthPt = 595.28 - marginPt * 2;
+
+      await pdf.html(container, {
+        x: 0,
+        y: 0,
+        width: printWidthPt,
+        windowWidth: 750,
+        autoPaging: "text",
+        html2canvas: {
+          scale: 0.74, // 555.28 / 750
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+        },
+        margin: [marginPt, marginPt, marginPt, marginPt],
+      });
+
+      // 4. Obtener string Base64 del PDF generado
+      const dataUri = pdf.output("datauristring");
+      const base64Content = dataUri.split(",")[1] || "";
+
+      if (!base64Content) {
+        throw new Error("No se pudo generar el contenido Base64 del PDF");
+      }
+
+      // 5. Guardar en disco vía Tauri IPC
+      await invoke("guardar_pdf", { path: pdfPath, contentBase64: base64Content });
+
+      showToast(`PDF guardado con éxito: ${fileName}`, "success");
+    } catch (err: any) {
+      console.error("Error al exportar PDF:", err);
+      showToast(`Error al exportar PDF: ${err.message || err}`, "error");
+    } finally {
+      if (container && document.body.contains(container)) {
+        document.body.removeChild(container);
+      }
+      if (document.body.contains(overlay)) {
+        document.body.removeChild(overlay);
+      }
+      btnExportarPdf.disabled = false;
+    }
+  });
+
+  /**
+   * Convierte cualquier URL de imagen a Data URL Base64 de forma infalible.
+   */
+  async function imgToDataUrl(src: string): Promise<string> {
+    if (!src) return src;
+    if (src.startsWith("data:")) return src;
+
+    try {
+      const response = await fetch(src);
+      const blob = await response.blob();
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(src);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return new Promise<string>((resolve) => {
+        const img = document.createElement("img") as HTMLImageElement;
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth || img.width || 300;
+            canvas.height = img.naturalHeight || img.height || 150;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) { resolve(src); return; }
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          } catch {
+            resolve(src);
+          }
+        };
+        img.onerror = () => resolve(src);
+        img.src = src;
+      });
+    }
+  }
+
+  /**
+   * Aplica inline styles a los elementos clonados para asegurar fidelidad estética en PDF
+   * e impedir que las imágenes o bloques desborden.
+   */
+  function inlineEditorStyles(root: HTMLElement): void {
+    const FONT = "'Inter', system-ui, -apple-system, sans-serif";
+    const COLOR_TEXT = "#2c2a29";
+    const COLOR_ACCENT = "#2c4c3b";
+
+    root.style.fontFamily = FONT;
+    root.style.fontSize = "11pt";
+    root.style.lineHeight = "1.6";
+    root.style.color = COLOR_TEXT;
+    root.style.background = "#ffffff";
+    root.style.margin = "0px";
+    root.style.padding = "0px";
+
+    // Eliminar margen superior del primer elemento hijo para evitar espacio en blanco inicial
+    const firstChild = root.firstElementChild as HTMLElement | null;
+    if (firstChild) {
+      firstChild.style.marginTop = "0px";
+    }
+
+    // Párrafos
+    root.querySelectorAll("p").forEach((el) => {
+      const h = el as HTMLElement;
+      h.style.cssText += `; margin: 0 0 0.6em 0; font-family: ${FONT}; font-size: 11pt; color: ${COLOR_TEXT}; page-break-inside: avoid !important; break-inside: avoid !important;`;
+    });
+
+    // Títulos
+    root.querySelectorAll("h1").forEach((el) => {
+      const h = el as HTMLElement;
+      h.style.cssText += `; font-family: ${FONT}; font-size: 20pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 1em 0 0.4em; line-height: 1.2; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
+    });
+    root.querySelectorAll("h2").forEach((el) => {
+      const h = el as HTMLElement;
+      h.style.cssText += `; font-family: ${FONT}; font-size: 15pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 0.9em 0 0.35em; line-height: 1.25; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
+    });
+    root.querySelectorAll("h3").forEach((el) => {
+      const h = el as HTMLElement;
+      h.style.cssText += `; font-family: ${FONT}; font-size: 12pt; font-weight: 700; color: ${COLOR_TEXT}; margin: 0.8em 0 0.3em; line-height: 1.3; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
+    });
+
+    // Formato de texto
+    root.querySelectorAll("strong, b").forEach((el) => {
+      (el as HTMLElement).style.fontWeight = "700";
+    });
+    root.querySelectorAll("em, i").forEach((el) => {
+      (el as HTMLElement).style.fontStyle = "italic";
+    });
+    root.querySelectorAll("s, del").forEach((el) => {
+      (el as HTMLElement).style.textDecoration = "line-through";
+    });
+
+    // Resaltados (mark)
+    root.querySelectorAll("mark").forEach((el) => {
+      const markEl = el as HTMLElement;
+      const existingBg = markEl.style.backgroundColor;
+      const bg = existingBg && existingBg !== "" ? existingBg : "#fef08a";
+      markEl.style.cssText += `; background-color: ${bg} !important; color: ${COLOR_TEXT}; border-radius: 2px; padding: 0.1em 0.2em; display: inline; box-decoration-break: clone; -webkit-box-decoration-break: clone;`;
+    });
+
+    // Bloques de código
+    root.querySelectorAll("code").forEach((el) => {
+      const codeEl = el as HTMLElement;
+      if (codeEl.parentElement?.tagName !== "PRE") {
+        codeEl.style.cssText += "; background: #f0ede6; color: #c0392b; padding: 0.1em 0.3em; border-radius: 3px; font-family: monospace; font-size: 0.9em;";
+      }
+    });
+    root.querySelectorAll("pre").forEach((el) => {
+      (el as HTMLElement).style.cssText += "; background: #f5f2ec; border: 1px solid #dcd7c8; border-radius: 4px; padding: 0.8em 1em; white-space: pre-wrap; word-break: break-all; font-family: monospace; font-size: 9pt; margin: 0.6em 0; page-break-inside: avoid !important; break-inside: avoid !important;";
+    });
+
+    // Citas
+    root.querySelectorAll("blockquote").forEach((el) => {
+      (el as HTMLElement).style.cssText += `; border-left: 3px solid ${COLOR_ACCENT}; margin: 0.6em 0; padding: 0.3em 0.8em; color: #555555; background: #f9f8f4; page-break-inside: avoid !important; break-inside: avoid !important;`;
+    });
+
+    // Listas
+    root.querySelectorAll("ul, ol").forEach((el) => {
+      (el as HTMLElement).style.cssText += "; margin: 0.4em 0 0.4em 1.4em; padding: 0;";
+    });
+    root.querySelectorAll("li").forEach((el) => {
+      (el as HTMLElement).style.cssText += `; margin: 0.15em 0; font-family: ${FONT}; font-size: 11pt; page-break-inside: avoid !important; break-inside: avoid !important;`;
+    });
+
+    // Imágenes: Evitar cortes e impedir desbordamientos
+    root.querySelectorAll("img").forEach((el) => {
+      const imgEl = el as HTMLElement;
+      imgEl.style.cssText += "; max-width: 100% !important; height: auto !important; display: block; margin: 0.8em auto; page-break-inside: avoid !important; break-inside: avoid !important;";
+    });
+  }
 
   btnToggleSidebar?.addEventListener("click", () => {
     const container = document.querySelector(".app-container");
