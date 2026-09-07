@@ -826,8 +826,8 @@ function setupHorarios() {
     try {
       const rutaDestino = await save({
         title: "Exportar horario",
-        defaultPath: "mi_horario.hrf",
-        filters: [{ name: "Horario EstudIO", extensions: ["hrf"] }],
+        defaultPath: "mi_horario.json",
+        filters: [{ name: "Horario EstudIO", extensions: ["json"] }],
       });
       if (!rutaDestino) return; // El usuario canceló
       await invoke("exportar_horario", { rutaDestino });
@@ -846,7 +846,7 @@ function setupHorarios() {
       const rutaArchivo = await open({
         title: "Importar horario",
         multiple: false,
-        filters: [{ name: "Horario EstudIO", extensions: ["hrf"] }],
+        filters: [{ name: "Horario EstudIO", extensions: ["json", "hrf"] }],
       });
       if (!rutaArchivo) return; // El usuario canceló
 

@@ -1039,9 +1039,9 @@ fn borrar_todos_slots(state: State<'_, DbState>) -> Result<String, String> {
     Ok("== Horario borrado exitosamente ==".to_string())
 }
 
-// ── Exportar / Importar horario (.hrf) ───────────────────────────────────────
+// ── Exportar / Importar horario (.json) ───────────────────────────────────────
 
-/// Estructura JSON del archivo .hrf de horario
+/// Estructura JSON del archivo .json de horario
 #[derive(Serialize, Deserialize)]
 struct HorarioExport {
     app: String,
@@ -1059,7 +1059,7 @@ struct SlotExport {
     aula: Option<String>,
 }
 
-/// Exporta todos los slots del horario al archivo indicado en formato JSON (.hrf)
+/// Exporta todos los slots del horario al archivo indicado en formato JSON (.json)
 #[tauri::command]
 fn exportar_horario(ruta_destino: String, state: State<'_, DbState>) -> Result<(), String> {
     let db = state.db.lock().unwrap();
@@ -1103,7 +1103,7 @@ fn exportar_horario(ruta_destino: String, state: State<'_, DbState>) -> Result<(
     Ok(())
 }
 
-/// Importa un archivo .hrf y carga los slots en la DB.
+/// Importa un archivo .json y carga los slots en la DB.
 /// Si `reemplazar` es true, borra el horario actual antes de insertar.
 #[tauri::command]
 fn importar_horario(
@@ -1116,11 +1116,11 @@ fn importar_horario(
 
     let export: HorarioExport =
         serde_json::from_str(&contenido).map_err(|_| {
-            "El archivo no es un horario de EstudIO válido (.hrf)".to_string()
+            "El archivo no es un horario de EstudIO válido (.json)".to_string()
         })?;
 
     if export.app != "EstudIO" {
-        return Err("El archivo no es un horario de EstudIO válido (.hrf)".to_string());
+        return Err("El archivo no es un horario de EstudIO válido (.json)".to_string());
     }
 
     let db = state.db.lock().unwrap();
