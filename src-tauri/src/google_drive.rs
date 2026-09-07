@@ -660,7 +660,12 @@ pub async fn descargar_apunte_drive(
 }
 
 /// Sincroniza al inicio: comprueba los apuntes locales que tienen sincronizar_drive = 1.
-/// Si en Drive hay una versión más reciente, descarga el ZIP y actualiza los archivos locales.
+/// Si en Drive hay una versión más reciente (por más de SYNC_THRESHOLD_SECS), descarga
+/// el ZIP y actualiza los archivos locales.
+///
+/// Nota sobre zona horaria: `ult_modificacion` en SQLite se guarda en hora LOCAL del sistema.
+/// Se convierte con `chrono::Local` para que el SO aplique automáticamente el offset correcto
+/// (ej: UTC-3 en Argentina) antes de comparar con la fecha UTC de Drive.
 #[tauri::command]
 pub async fn sincronizar_apuntes_registrados(
     app: AppHandle,
@@ -694,17 +699,22 @@ pub async fn sincronizar_apuntes_registrados(
     };
 
     if apuntes_a_sincronizar.is_empty() {
+        eprintln!("[Drive Sync] No hay apuntes con sincronización activa. Nada que hacer.");
         return Ok(Vec::new());
     }
+
+    eprintln!("[Drive Sync] Iniciando sincronización para {} apunte(s).", apuntes_a_sincronizar.len());
 
     // 2. Obtener lista de archivos en Drive
     let drive_files = match listar_apuntes_drive(app.clone()).await {
         Ok(files) => files,
         Err(e) => {
-            eprintln!("[sincronizar_apuntes_registrados] No se pudo listar Drive: {}", e);
+            eprintln!("[Drive Sync] No se pudo listar Drive: {}", e);
             return Ok(Vec::new());
         }
     };
+
+    eprintln!("[Drive Sync] Archivos encontrados en Drive: {}", drive_files.len());
 
     let token = match obtener_access_token_valido(&app).await {
         Ok(t) => t,
@@ -713,28 +723,65 @@ pub async fn sincronizar_apuntes_registrados(
     let client = reqwest::Client::new();
     let mut actualizados = Vec::new();
 
+    // SQLite guarda la fecha sin segundos (formato HH:MM), lo que introduce hasta 59s
+    // de imprecisión. Usamos un umbral de 60 segundos para evitar falsos positivos.
+    const SYNC_THRESHOLD_SECS: i64 = 60;
+
     for (_codigo, tema, ruta, ult_mod_local) in apuntes_a_sincronizar {
         let expected_name = format!("{}_export.zip", tema);
+        eprintln!("[Drive Sync] ─── Evaluando apunte: \"{}\"", tema);
+
         let drive_item = drive_files.iter().find(|f| f.name == expected_name);
 
         if let Some(item) = drive_item {
-            // Comparar fechas normalizadas
+            // Parsear fecha de Drive (viene en RFC3339 UTC, ej: "2026-09-07T12:00:00.000Z")
             let drive_dt = DateTime::parse_from_rfc3339(&item.modified_time)
                 .map(|dt| dt.with_timezone(&Utc))
                 .ok();
 
+            // Parsear la fecha local como hora local del sistema y convertir a UTC.
+            // chrono::Local usa la timezone del SO automáticamente (ej: America/Argentina/Buenos_Aires).
+            // from_local_datetime devuelve None si la hora es ambigua (cambio de horario de verano).
             let local_dt = NaiveDateTime::parse_from_str(&ult_mod_local, "%Y-%m-%d %H:%M")
                 .or_else(|_| NaiveDateTime::parse_from_str(&ult_mod_local, "%Y/%m/%d %H:%M"))
-                .map(|ndt| Utc.from_utc_datetime(&ndt))
-                .ok();
+                .ok()
+                .and_then(|ndt| chrono::Local.from_local_datetime(&ndt).single())
+                .map(|ldt| ldt.with_timezone(&Utc));
 
-            let debe_actualizar = match (drive_dt, local_dt) {
-                (Some(ddt), Some(ldt)) => ddt > ldt,
-                (Some(_), None) => true,
-                _ => false,
+            eprintln!("[Drive Sync]   📅 Fecha Drive  : {}", item.modified_time);
+            match &local_dt {
+                Some(ldt) => eprintln!(
+                    "[Drive Sync]   📅 Fecha local  : {} (local) → {}Z",
+                    ult_mod_local,
+                    ldt.format("%Y-%m-%dT%H:%M:%S")
+                ),
+                None => eprintln!(
+                    "[Drive Sync]   ⚠️  Fecha local  : no se pudo parsear \"{}\"",
+                    ult_mod_local
+                ),
+            }
+
+            let (debe_actualizar, diff_secs) = match (drive_dt, local_dt) {
+                (Some(ddt), Some(ldt)) => {
+                    let diff = (ddt - ldt).num_seconds();
+                    eprintln!("[Drive Sync]   ⏱  Diferencia   : {} segundos (Drive - Local)", diff);
+                    (diff > SYNC_THRESHOLD_SECS, diff)
+                }
+                (Some(_), None) => {
+                    eprintln!("[Drive Sync]   ⏱  Diferencia   : fecha local no parseable — se descarga por precaución");
+                    (true, i64::MAX)
+                }
+                _ => {
+                    eprintln!("[Drive Sync]   ⚠️  No se pudo comparar fechas — se omite");
+                    (false, 0)
+                }
             };
 
             if debe_actualizar {
+                eprintln!(
+                    "[Drive Sync]   ⬇️  DESCARGANDO — Drive es más nuevo por +{} segundos",
+                    diff_secs
+                );
                 let download_url = format!(
                     "https://www.googleapis.com/drive/v3/files/{}?alt=media",
                     item.id
@@ -768,15 +815,27 @@ pub async fn sincronizar_apuntes_registrados(
                                         (&nueva_fecha, &ruta),
                                     );
                                     actualizados.push(tema.clone());
+                                    eprintln!("[Drive Sync]   ✅ Actualización completada: \"{}\"", tema);
                                 }
                                 let _ = fs::remove_file(&temp_zip);
                             }
                         }
                     }
                 }
+            } else {
+                eprintln!(
+                    "[Drive Sync]   ✅ SALTAR — Drive no es más nuevo (diff={}s, umbral={}s). Sin descarga.",
+                    diff_secs, SYNC_THRESHOLD_SECS
+                );
             }
+        } else {
+            eprintln!(
+                "[Drive Sync]   ℹ️  No se encontró \"{}\" en Drive. Omitiendo.",
+                expected_name
+            );
         }
     }
 
+    eprintln!("[Drive Sync] ─── Sincronización finalizada. Apuntes actualizados: {}", actualizados.len());
     Ok(actualizados)
 }
