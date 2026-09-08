@@ -1,79 +1,200 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
+import { showToast } from "./main";
 
-const UPDATE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`;
+let versionDisponible: string | null = null;
+
+export function getVersionDisponible(): string | null {
+  return versionDisponible;
+}
 
 /**
- * Muestra un toast interactivo (abajo a la derecha) cuando hay una actualización disponible.
- * El toast tiene dos botones: "Actualizar ahora" y "Más tarde".
+ * Muestra la notificación de actualización en la barra superior (popover y pill)
+ * y en el modal de configuración.
  */
-function showUpdateToast(version: string): void {
-  const container = document.getElementById("toast-container");
-  if (!container) return;
+export function mostrarNotificacionActualizacion(version: string, autoAbrirPopover = true): void {
+  versionDisponible = version;
 
-  // Evitar duplicados si el evento llega más de una vez
-  if (document.getElementById("toast-update")) return;
+  // 1. Mostrar pill en el topbar
+  const btnPill = document.getElementById("btn-update-available");
+  const pillText = document.getElementById("update-pill-text");
+  if (btnPill && pillText) {
+    pillText.textContent = `v${version} disponible`;
+    btnPill.style.display = "inline-flex";
+  }
 
-  const toast = document.createElement("div");
-  toast.className = "toast update";
-  toast.id = "toast-update";
+  // 2. Configurar y desplegar popover en el topbar
+  const popover = document.getElementById("popover-update");
+  const popoverTitle = document.getElementById("popover-update-title");
+  const popoverBody = document.getElementById("popover-update-body");
 
-  toast.innerHTML = `
-    <div class="toast-header">
-      ${UPDATE_ICON}
-      <span>Actualización disponible — v${version}</span>
-    </div>
-    <div class="toast-body">
-      Una nueva versión de EstudIO está lista para instalar.
-    </div>
-    <div class="toast-actions">
-      <button class="btn-update-now" id="btn-update-now">Actualizar ahora</button>
-      <button class="btn-update-later" id="btn-update-later">Más tarde</button>
-    </div>
-  `;
+  if (popover && popoverTitle && popoverBody) {
+    popoverTitle.textContent = `Actualización disponible — v${version}`;
+    popoverBody.textContent = `Una nueva versión de EstudIO (v${version}) está lista para descargar e instalar.`;
+    if (autoAbrirPopover) {
+      popover.style.display = "block";
+    }
+  }
 
-  container.appendChild(toast);
+  // 3. Configurar banner dentro del modal de Configuración
+  const banner = document.getElementById("settings-update-banner");
+  const bannerText = document.getElementById("settings-update-banner-text");
+  if (banner && bannerText) {
+    bannerText.textContent = `¡Nueva versión v${version} disponible!`;
+    banner.style.display = "flex";
+  }
+}
 
-  const removeToast = () => {
-    toast.style.animation = "slideOut 0.3s ease forwards";
-    setTimeout(() => {
-      if (toast.parentNode === container) container.removeChild(toast);
-    }, 300);
+/**
+ * Cierra el popover emergente superior.
+ */
+export function cerrarPopoverActualizacion(): void {
+  const popover = document.getElementById("popover-update");
+  if (popover) {
+    popover.style.display = "none";
+  }
+}
+
+/**
+ * Alterna la visibilidad del popover superior.
+ */
+export function togglePopoverActualizacion(): void {
+  const popover = document.getElementById("popover-update");
+  if (!popover) return;
+  if (popover.style.display === "none" || !popover.style.display) {
+    popover.style.display = "block";
+  } else {
+    popover.style.display = "none";
+  }
+}
+
+/**
+ * Ejecuta la descarga e instalación de la actualización a través de Rust.
+ */
+async function ejecutarInstalacion(): Promise<void> {
+  const btnPopoverNow = document.getElementById("btn-update-now") as HTMLButtonElement | null;
+  const btnPopoverLater = document.getElementById("btn-update-later") as HTMLButtonElement | null;
+  const btnSettingsNow = document.getElementById("btn-settings-update-now") as HTMLButtonElement | null;
+
+  const setButtonsLoading = (loading: boolean, text: string) => {
+    if (btnPopoverNow) {
+      btnPopoverNow.disabled = loading;
+      btnPopoverNow.textContent = text;
+    }
+    if (btnSettingsNow) {
+      btnSettingsNow.disabled = loading;
+      btnSettingsNow.textContent = text;
+    }
+    if (btnPopoverLater) {
+      btnPopoverLater.disabled = loading;
+    }
   };
 
-  // Botón "Más tarde": simplemente cierra el toast
-  toast.querySelector<HTMLButtonElement>("#btn-update-later")!
-    .addEventListener("click", removeToast);
+  setButtonsLoading(true, "Descargando…");
 
-  // Botón "Actualizar ahora": invoca el comando Rust y desactiva los botones mientras descarga
-  toast.querySelector<HTMLButtonElement>("#btn-update-now")!
-    .addEventListener("click", async () => {
-      const btnNow = toast.querySelector<HTMLButtonElement>("#btn-update-now")!;
-      const btnLater = toast.querySelector<HTMLButtonElement>("#btn-update-later")!;
-
-      btnNow.textContent = "Descargando…";
-      btnNow.disabled = true;
-      btnLater.disabled = true;
-
-      try {
-        await invoke("instalar_actualizacion");
-        // La app se reinicia automáticamente, pero si por algún motivo no lo hace:
-        removeToast();
-      } catch (err) {
-        console.error("[updater] Error al instalar actualización:", err);
-        btnNow.textContent = "Error — reintentar";
-        btnNow.disabled = false;
-        btnLater.disabled = false;
-      }
-    });
+  try {
+    await invoke("instalar_actualizacion");
+    // Si la app no se reinicia automáticamente:
+    cerrarPopoverActualizacion();
+  } catch (err) {
+    console.error("[updater] Error al instalar actualización:", err);
+    setButtonsLoading(false, "Error — reintentar");
+    showToast(`Error al instalar actualización: ${err}`, "error");
+  }
 }
 
 /**
- * Inicializa el listener del evento "update-available" emitido desde Rust.
- * Debe llamarse una sola vez al arrancar la app.
+ * Inicializa la lógica del actualizador:
+ * - Lee la versión instalada.
+ * - Registra los eventos de los botones del topbar y del modal de configuración.
+ * - Escucha el evento "update-available" emitido por Rust.
+ * - Expone window.__testUpdateAvailable para pruebas.
  */
 export async function initUpdater(): Promise<void> {
-  await listen<string>("update-available", (event) => {
-    showUpdateToast(event.payload);
+  // Cargar versión actual de la app
+  try {
+    const versionActual = await getVersion();
+    const versionEl = document.getElementById("settings-app-version");
+    if (versionEl && versionActual) {
+      versionEl.textContent = `v${versionActual}`;
+    }
+  } catch (e) {
+    console.warn("[updater] No se pudo leer getVersion():", e);
+  }
+
+  // Clic en el botón Pill de la barra superior (alterna el popover)
+  const btnPill = document.getElementById("btn-update-available");
+  btnPill?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    togglePopoverActualizacion();
   });
+
+  // Botón "Más tarde" del popover
+  const btnPopoverLater = document.getElementById("btn-update-later");
+  btnPopoverLater?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    cerrarPopoverActualizacion();
+  });
+
+  // Botón "Actualizar ahora" del popover
+  const btnPopoverNow = document.getElementById("btn-update-now");
+  btnPopoverNow?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    ejecutarInstalacion();
+  });
+
+  // Botón "Actualizar ahora" dentro de Configuración
+  const btnSettingsNow = document.getElementById("btn-settings-update-now");
+  btnSettingsNow?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    ejecutarInstalacion();
+  });
+
+  // Botón "Buscar" actualizaciones en Configuración
+  const btnCheck = document.getElementById("btn-settings-check-update") as HTMLButtonElement | null;
+  btnCheck?.addEventListener("click", async () => {
+    if (!btnCheck) return;
+    const originalText = btnCheck.textContent;
+    btnCheck.disabled = true;
+    btnCheck.textContent = "Buscando…";
+
+    try {
+      const nuevaVersion = await invoke<string | null>("verificar_actualizacion_manual");
+      if (nuevaVersion) {
+        mostrarNotificacionActualizacion(nuevaVersion, true);
+        showToast(`¡Nueva versión v${nuevaVersion} disponible!`, "success");
+      } else {
+        showToast("EstudIO está al día (última versión instalada)", "success");
+      }
+    } catch (err: any) {
+      console.error("[updater] Error al buscar actualizaciones:", err);
+      showToast(`No se pudo verificar actualizaciones: ${err}`, "error");
+    } finally {
+      btnCheck.disabled = false;
+      btnCheck.textContent = originalText;
+    }
+  });
+
+  // Cerrar el popover si se hace clic fuera de él
+  document.addEventListener("click", (e) => {
+    const popover = document.getElementById("popover-update");
+    const target = e.target as HTMLElement;
+    if (popover && popover.style.display !== "none" && !popover.contains(target) && !btnPill?.contains(target)) {
+      cerrarPopoverActualizacion();
+    }
+  });
+
+  // Escuchar evento de actualización emitido por Rust
+  await listen<string>("update-available", (event) => {
+    console.log("[updater] Nueva versión detectada por Rust:", event.payload);
+    mostrarNotificacionActualizacion(event.payload, true);
+  });
+
+  // Modo de prueba para verificar la UI de inmediato
+  (window as any).__testUpdateAvailable = (version = "1.2.4") => {
+    console.log("[updater test] Disparando notificación de prueba con versión:", version);
+    mostrarNotificacionActualizacion(version, true);
+  };
 }
+

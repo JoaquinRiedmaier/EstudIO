@@ -2540,7 +2540,7 @@ async function cargarSelectorMaterias() {
   }
 }
 
-function showToast(message: string, type: "success" | "error" = "success") {
+export function showToast(message: string, type: "success" | "error" = "success") {
   const container = document.getElementById("toast-container");
   if (!container) return;
 

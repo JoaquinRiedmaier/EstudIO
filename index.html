@@ -87,7 +87,18 @@
           <button class="topbar-tab" data-tab-target="view-recordatorios">Recordatorios</button>
           <button class="topbar-tab" data-tab-target="view-horarios">Horarios</button>
         </div>
-        <div style="display:flex; align-items:center; gap:0.5rem;">
+        <div class="topbar-actions" style="display:flex; align-items:center; gap:0.5rem; position:relative;">
+          <!-- Botón pill de actualización disponible (oculto por defecto) -->
+          <button id="btn-update-available" class="btn-update-pill" style="display:none;" title="Actualización disponible" aria-label="Actualización disponible">
+            <span class="update-pill-dot"></span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span id="update-pill-text">v1.2.4 disponible</span>
+          </button>
+
           <button id="btn-cloud-sync-status" class="btn-cloud-sync cloud-status-unlinked" title="Google Drive no conectado" aria-label="Estado de sincronización en la nube">
             <svg id="icon-cloud-status" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
@@ -101,6 +112,25 @@
               <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
+
+          <!-- Popover desplegable superior de actualización -->
+          <div id="popover-update" class="update-popover" style="display: none;">
+            <div class="update-popover-header">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span id="popover-update-title">Actualización disponible</span>
+            </div>
+            <div class="update-popover-body" id="popover-update-body">
+              Una nueva versión de EstudIO está lista para instalar.
+            </div>
+            <div class="update-popover-actions">
+              <button class="btn-update-now" id="btn-update-now">Actualizar ahora</button>
+              <button class="btn-update-later" id="btn-update-later">Más tarde</button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -783,7 +813,7 @@
       </div>
 
       <!-- Versión -->
-      <div class="settings-row">
+      <div class="settings-row" style="align-items:center;">
         <div class="settings-label">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -793,7 +823,23 @@
           </svg>
           Versión de la aplicación
         </div>
-        <span class="settings-value">v1.2.3</span>
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <span id="settings-app-version" class="settings-value">v1.2.3</span>
+          <button id="btn-settings-check-update" class="btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem; border-radius:5px;" title="Buscar actualizaciones">Buscar</button>
+        </div>
+      </div>
+
+      <!-- Banner de actualización disponible dentro de Configuración -->
+      <div id="settings-update-banner" class="settings-update-banner" style="display:none;">
+        <div class="settings-update-banner-info">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span id="settings-update-banner-text">Actualización disponible</span>
+        </div>
+        <button id="btn-settings-update-now" class="btn-update-now" style="padding:0.4rem 0.8rem; font-size:0.8rem;">Actualizar ahora</button>
       </div>
 
       <div class="settings-divider"></div>
