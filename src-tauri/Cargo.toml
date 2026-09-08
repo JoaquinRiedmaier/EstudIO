@@ -1,6 +1,6 @@
 [package]
 name = "EstudIO"
-version = "1.0.3"
+version = "1.2.3"
 description = "Gestiona materias, los apuntes y recordatorios"
 authors = ["you"]
 edition = "2021"

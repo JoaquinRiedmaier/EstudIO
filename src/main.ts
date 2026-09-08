@@ -137,13 +137,10 @@ const CustomPasteExtension = Extension.create({
         key: new PluginKey("customPasteHandler"),
         props: {
           handlePaste(_view, event, _slice) {
-            console.log("CustomPasteExtension: Interceptando evento de pegado");
-
             // Si hay texto o HTML en el portapapeles, delegamos al comportamiento nativo de ProseMirror/TipTap
             if (event.clipboardData) {
               const types = event.clipboardData.types;
               if (types.includes("text/plain") || types.includes("text/html")) {
-                console.log("Detectado texto/HTML en el portapapeles, delegando a TipTap");
                 return false;
               }
             }
@@ -154,7 +151,6 @@ const CustomPasteExtension = Extension.create({
 
             (async () => {
               try {
-                console.log("Intentando leer imagen desde el portapapeles de Tauri...");
                 const clipboardImage = await readImage();
 
                 const size = await clipboardImage.size();
@@ -180,7 +176,6 @@ const CustomPasteExtension = Extension.create({
                 }
                 const base64Data = dataUrl.substring(commaIdx + 1);
 
-                console.log("Guardando imagen en el backend...");
                 const rutaRelativa = await invoke<string>("paste_imagen", {
                   rutaApunte: currentEditPath,
                   imagen: base64Data,
@@ -1060,7 +1055,6 @@ function initTipTapEditor(): Editor | null {
           updateToolbarActiveStates();
         },
       });
-      console.log("Tiptap Editor inicializado correctamente.");
     }
   } catch (e) {
     console.error("Error al inicializar Tiptap Editor:", e);
@@ -1069,7 +1063,6 @@ function initTipTapEditor(): Editor | null {
 }
 
 function setupEditor() {
-  console.log("Iniciando setupEditor (eventos)...");
 
   // Pre-inicializar TipTap en segundo plano para apertura inmediata de apuntes
   if ("requestIdleCallback" in window) {
@@ -2752,7 +2745,6 @@ async function cargarUltimosModificados() {
   }
 }
 async function abrirEditor(apunte: Apunte) {
-  console.log(`Intentando abrir apunte en ruta: ${apunte.ruta}`);
   try {
     // 1. Cerrar cualquier modal abierto inmediatamente
     const modalVer = document.getElementById("modal-ver-apuntes");
@@ -2789,14 +2781,10 @@ async function abrirEditor(apunte: Apunte) {
 
     // 3. Leer el contenido del archivo desde el backend
     const content = await invoke<string>("abrir_apunte", { path: apunte.ruta });
-    console.log(
-      `Contenido leído correctamente (${content.length} caracteres).`,
-    );
 
     // 4. Desacoplar el parseo y renderizado pesado al siguiente frame para mantener la animación fluida
     requestAnimationFrame(async () => {
       if (editor) {
-        console.log("Seteando valor en el editor...");
         const htmlContent = await marked.parse(content);
 
         const lastSlash = Math.max(
@@ -3022,20 +3010,13 @@ function setupCloudSync() {
   // Settings: Google Drive actions
   const btnConectar = document.getElementById("btn-conectar-drive");
   const btnDesconectar = document.getElementById("btn-desconectar-drive");
-  const btnGuardarConfig = document.getElementById("btn-guardar-drive-config");
 
   btnConectar?.addEventListener("click", async () => {
-    const inputClientId = (document.getElementById("settings-drive-client-id") as HTMLInputElement)?.value;
-    const inputClientSecret = (document.getElementById("settings-drive-client-secret") as HTMLInputElement)?.value;
-
     try {
       showToast("Abriendo navegador para iniciar sesión con Google…", "success");
       const resp = await invoke<{ conectado: boolean; email?: string | null }>(
         "iniciar_sesion_google",
-        {
-          clientId: inputClientId || null,
-          clientSecret: inputClientSecret || null,
-        },
+        { clientId: null, clientSecret: null },
       );
       if (resp.conectado) {
         showToast(`¡Conectado exitosamente con ${resp.email || "Google Drive"}!`, "success");
@@ -3058,28 +3039,6 @@ function setupCloudSync() {
     }
   });
 
-  btnGuardarConfig?.addEventListener("click", async () => {
-    const clientId = (document.getElementById("settings-drive-client-id") as HTMLInputElement)?.value;
-    const clientSecret = (document.getElementById("settings-drive-client-secret") as HTMLInputElement)?.value;
-    try {
-      await invoke("guardar_config_google", { clientId: clientId || "", clientSecret: clientSecret || "" });
-      showToast("Configuración de credenciales guardada", "success");
-    } catch (e: any) {
-      showToast(`Error guardando configuración: ${e}`, "error");
-    }
-  });
-
-  // Load existing config into inputs
-  invoke<{ client_id: string; client_secret: string }>("obtener_config_google")
-    .then((cfg) => {
-      if (cfg) {
-        const inpId = document.getElementById("settings-drive-client-id") as HTMLInputElement;
-        const inpSec = document.getElementById("settings-drive-client-secret") as HTMLInputElement;
-        if (inpId && cfg.client_id) inpId.value = cfg.client_id;
-        if (inpSec && cfg.client_secret) inpSec.value = cfg.client_secret;
-      }
-    })
-    .catch(() => {});
 }
 
 function setupDriveImport() {

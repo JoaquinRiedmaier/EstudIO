@@ -758,6 +758,12 @@
           <path d="m12 5 7 7-7 7" />
         </svg>
       </button>
+      <p style="font-size:0.73rem; color:var(--text-secondary); margin-top:1rem; text-align:center; line-height:1.5;">
+        Al usar EstudIO aceptás nuestros
+        <a href="https://joaquinriedmaier.github.io/EstudIO/terminos" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:underline;">Términos de Servicio</a>
+        y
+        <a href="https://joaquinriedmaier.github.io/EstudIO/privacidad" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:underline;">Política de Privacidad</a>.
+      </p>
     </div>
   </div>
 
@@ -787,7 +793,7 @@
           </svg>
           Versión de la aplicación
         </div>
-        <span class="settings-value">v1.0.3</span>
+        <span class="settings-value">v1.2.3</span>
       </div>
 
       <div class="settings-divider"></div>
@@ -808,20 +814,7 @@
           <button id="btn-conectar-drive" class="btn-primary" style="flex:1; padding:0.4rem 0.8rem; font-size:0.85rem;">Conectar con Drive</button>
           <button id="btn-desconectar-drive" class="btn-secondary" style="flex:1; padding:0.4rem 0.8rem; font-size:0.85rem; display:none;">Desconectar</button>
         </div>
-        <details style="width:100%; font-size:0.82rem; color:var(--text-secondary); margin-top:0.2rem;">
-          <summary style="cursor:pointer; user-select:none;">Configuración de Google Client ID</summary>
-          <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.6rem;">
-            <div>
-              <label for="settings-drive-client-id" style="font-size:0.75rem; display:block; margin-bottom:2px;">Client ID:</label>
-              <input type="text" id="settings-drive-client-id" placeholder="xxxx.apps.googleusercontent.com" style="width:100%; font-size:0.78rem; padding:0.35rem; border-radius:4px; border:1px solid var(--panel-border); background:var(--bg-card); color:var(--text-primary);" />
-            </div>
-            <div>
-              <label for="settings-drive-client-secret" style="font-size:0.75rem; display:block; margin-bottom:2px;">Client Secret (opcional):</label>
-              <input type="password" id="settings-drive-client-secret" placeholder="Client secret" style="width:100%; font-size:0.78rem; padding:0.35rem; border-radius:4px; border:1px solid var(--panel-border); background:var(--bg-card); color:var(--text-primary);" />
-            </div>
-            <button id="btn-guardar-drive-config" class="btn-secondary" style="font-size:0.78rem; padding:0.3rem 0.6rem; align-self:flex-end;">Guardar credenciales</button>
-          </div>
-        </details>
+
       </div>
 
       <div class="settings-divider"></div>

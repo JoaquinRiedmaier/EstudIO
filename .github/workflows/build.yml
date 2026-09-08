@@ -64,6 +64,8 @@ jobs:
           NO_STRIP: true
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          ESTUDIO_GOOGLE_CLIENT_ID: ${{ secrets.ESTUDIO_GOOGLE_CLIENT_ID }}
+          ESTUDIO_GOOGLE_CLIENT_SECRET: ${{ secrets.ESTUDIO_GOOGLE_CLIENT_SECRET }}
         with:
           tagName: app-v__VERSION__
           releaseName: "App v__VERSION__"

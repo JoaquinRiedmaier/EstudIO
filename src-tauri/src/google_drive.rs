@@ -7,8 +7,8 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 
-use crate::estructuras::Apunte;
 use super::DbState;
+use crate::estructuras::Apunte;
 
 fn url_encode(input: &str) -> String {
     let mut encoded = String::with_capacity(input.len() * 2);
@@ -26,6 +26,16 @@ fn url_encode(input: &str) -> String {
 }
 
 const DEFAULT_DRIVE_FOLDER_QUERY: &str = "name contains '_export.zip' and trashed = false";
+
+/// Credenciales por defecto de EstudIO (se leen en tiempo de compilación desde variables de entorno).
+/// En producción se inyectan como GitHub Actions secrets: ESTUDIO_GOOGLE_CLIENT_ID y ESTUDIO_GOOGLE_CLIENT_SECRET.
+/// Para compilar localmente: export ESTUDIO_GOOGLE_CLIENT_ID=... && export ESTUDIO_GOOGLE_CLIENT_SECRET=...
+pub fn default_client_id() -> &'static str {
+    option_env!("ESTUDIO_GOOGLE_CLIENT_ID").unwrap_or("")
+}
+pub fn default_client_secret() -> &'static str {
+    option_env!("ESTUDIO_GOOGLE_CLIENT_SECRET").unwrap_or("")
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GoogleTokens {
@@ -77,18 +87,29 @@ fn get_config_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("google_drive_config.json"))
 }
 
-// Carga la configuración guardada (Client ID y Client Secret)
+// Carga la configuración guardada (Client ID y Client Secret).
+// Si no hay configuración personalizada, se usan las credenciales por defecto de la app.
 pub fn cargar_config(app: &AppHandle) -> GoogleDriveConfig {
     if let Ok(path) = get_config_path(app) {
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(config) = serde_json::from_str::<GoogleDriveConfig>(&content) {
-                    return config;
+                if let Ok(mut config) = serde_json::from_str::<GoogleDriveConfig>(&content) {
+                    if !config.client_id.is_empty() {
+                        // Si el secret está vacío, usar el embebido en la app
+                        if config.client_secret.is_empty() {
+                            config.client_secret = default_client_secret().to_string();
+                        }
+                        return config;
+                    }
                 }
             }
         }
     }
-    GoogleDriveConfig::default()
+    // Fallback a credenciales por defecto de EstudIO
+    GoogleDriveConfig {
+        client_id: default_client_id().to_string(),
+        client_secret: default_client_secret().to_string(),
+    }
 }
 
 #[tauri::command]
@@ -205,10 +226,7 @@ pub async fn iniciar_sesion_google(
     // 1. Iniciar listener TCP local en un puerto efímero asignado por el sistema
     let listener = TcpListener::bind("127.0.0.1:0")
         .map_err(|e| format!("No se pudo iniciar el listener local: {}", e))?;
-    let port = listener
-        .local_addr()
-        .map_err(|e| e.to_string())?
-        .port();
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let redirect_uri = format!("http://127.0.0.1:{}/callback", port);
 
     // 2. Construir URL de autorización (usando drive.file, el estándar seguro recomendado por Google)
@@ -242,7 +260,9 @@ pub async fn iniciar_sesion_google(
         // Enviar respuesta de error al navegador
         let response = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<h3>No se recibió el código de autorización de Google.</h3>";
         let _ = stream.write_all(response.as_bytes());
-        return Err("No se encontró el código de autorización en la respuesta de Google".to_string());
+        return Err(
+            "No se encontró el código de autorización en la respuesta de Google".to_string(),
+        );
     };
 
     // Responder al navegador con HTML estilizado de confirmación
@@ -480,48 +500,26 @@ pub async fn subir_apunte_drive(app: AppHandle, path_apunte: String) -> Result<S
         .await
         .map_err(|e| e.to_string())?;
 
-    let search_status = search_res.status();
-    let search_body = search_res.text().await.unwrap_or_default();
-    eprintln!("[Drive Search] query: {}, status: {}", search_q, search_status);
+    // Eliminar versiones anteriores si las hay
+    if search_res.status().is_success() {
+        #[derive(Deserialize)]
+        struct SearchItem {
+            id: String,
+        }
+        #[derive(Deserialize)]
+        struct SearchResponse {
+            files: Option<Vec<SearchItem>>,
+        }
 
-    #[derive(Deserialize, Debug)]
-    struct SearchItem {
-        id: String,
-        name: String,
-    }
-
-    #[derive(Deserialize, Debug)]
-    struct SearchResponse {
-        files: Option<Vec<SearchItem>>,
-    }
-
-    if search_status.is_success() {
-        match serde_json::from_str::<SearchResponse>(&search_body) {
-            Ok(data) => {
-                if let Some(files) = data.files {
-                    eprintln!("[Drive Delete] Encontrados {} archivo(s) previos para eliminar", files.len());
-                    for file in files {
-                        eprintln!(
-                            "[Drive Delete] Borrando versión previa de {} (id: {})",
-                            file.name, file.id
-                        );
-                        let delete_url =
-                            format!("https://www.googleapis.com/drive/v3/files/{}", file.id);
-                        let del_res = client.delete(&delete_url).bearer_auth(&token).send().await;
-                        eprintln!(
-                            "[Drive Delete] Estado borrado {}: {:?}",
-                            file.id,
-                            del_res.as_ref().map(|r| r.status())
-                        );
-                    }
+        if let Ok(body) = search_res.text().await {
+            if let Ok(data) = serde_json::from_str::<SearchResponse>(&body) {
+                for file in data.files.unwrap_or_default() {
+                    let delete_url =
+                        format!("https://www.googleapis.com/drive/v3/files/{}", file.id);
+                    let _ = client.delete(&delete_url).bearer_auth(&token).send().await;
                 }
             }
-            Err(e) => {
-                eprintln!("[Drive Search] Error deserializando respuesta: {} - Body: {}", e, search_body);
-            }
         }
-    } else {
-        eprintln!("[Drive Search] Falló búsqueda: {}", search_body);
     }
 
     // 3. Subir el nuevo archivo limpio a Drive con multipart
@@ -560,7 +558,10 @@ pub async fn subir_apunte_drive(app: AppHandle, path_apunte: String) -> Result<S
         return Err(format!("Fallo en la subida a Google Drive: {}", err_body));
     }
 
-    Ok(format!("Apunte '{}' sincronizado exitosamente en Google Drive", nombre_zip))
+    Ok(format!(
+        "Apunte '{}' sincronizado exitosamente en Google Drive",
+        nombre_zip
+    ))
 }
 
 /// Descarga un ZIP desde Google Drive y lo importa como apunte local con extraer_zip
@@ -703,7 +704,10 @@ pub async fn sincronizar_apuntes_registrados(
         return Ok(Vec::new());
     }
 
-    eprintln!("[Drive Sync] Iniciando sincronización para {} apunte(s).", apuntes_a_sincronizar.len());
+    eprintln!(
+        "[Drive Sync] Iniciando sincronización para {} apunte(s).",
+        apuntes_a_sincronizar.len()
+    );
 
     // 2. Obtener lista de archivos en Drive
     let drive_files = match listar_apuntes_drive(app.clone()).await {
@@ -714,7 +718,10 @@ pub async fn sincronizar_apuntes_registrados(
         }
     };
 
-    eprintln!("[Drive Sync] Archivos encontrados en Drive: {}", drive_files.len());
+    eprintln!(
+        "[Drive Sync] Archivos encontrados en Drive: {}",
+        drive_files.len()
+    );
 
     let token = match obtener_access_token_valido(&app).await {
         Ok(t) => t,
@@ -764,7 +771,10 @@ pub async fn sincronizar_apuntes_registrados(
             let (debe_actualizar, diff_secs) = match (drive_dt, local_dt) {
                 (Some(ddt), Some(ldt)) => {
                     let diff = (ddt - ldt).num_seconds();
-                    eprintln!("[Drive Sync]   ⏱  Diferencia   : {} segundos (Drive - Local)", diff);
+                    eprintln!(
+                        "[Drive Sync]   ⏱  Diferencia   : {} segundos (Drive - Local)",
+                        diff
+                    );
                     (diff > SYNC_THRESHOLD_SECS, diff)
                 }
                 (Some(_), None) => {
@@ -802,20 +812,25 @@ pub async fn sincronizar_apuntes_registrados(
                                     // Normalizar referencias de imágenes en el .md
                                     let note_path = Path::new(&ruta);
                                     if let Ok(contenido) = fs::read_to_string(note_path) {
-                                        let normalizado = super::normalizar_rutas_imagenes(&contenido);
+                                        let normalizado =
+                                            super::normalizar_rutas_imagenes(&contenido);
                                         if normalizado != contenido {
                                             let _ = fs::write(note_path, normalizado);
                                         }
                                     }
                                     // Actualizar fecha en SQLite
-                                    let nueva_fecha = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+                                    let nueva_fecha =
+                                        chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
                                     let db = state.db.lock().unwrap();
                                     let _ = db.execute(
                                         "UPDATE APUNTE SET ult_modificacion = ?1 WHERE ruta = ?2",
                                         (&nueva_fecha, &ruta),
                                     );
                                     actualizados.push(tema.clone());
-                                    eprintln!("[Drive Sync]   ✅ Actualización completada: \"{}\"", tema);
+                                    eprintln!(
+                                        "[Drive Sync]   ✅ Actualización completada: \"{}\"",
+                                        tema
+                                    );
                                 }
                                 let _ = fs::remove_file(&temp_zip);
                             }
@@ -836,6 +851,9 @@ pub async fn sincronizar_apuntes_registrados(
         }
     }
 
-    eprintln!("[Drive Sync] ─── Sincronización finalizada. Apuntes actualizados: {}", actualizados.len());
+    eprintln!(
+        "[Drive Sync] ─── Sincronización finalizada. Apuntes actualizados: {}",
+        actualizados.len()
+    );
     Ok(actualizados)
 }
