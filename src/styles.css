@@ -647,23 +647,96 @@ input:checked+.slider:before {
   }
 }
 
-/* Toast de actualización disponible (Adaptado al diseño editorial/papel de EstudIO) */
-.toast.update {
+/* =====================================================
+   UPDATE SYSTEM — Topbar Pill & Popover Notification
+   ===================================================== */
+
+/* Botón Pill en Topbar */
+.btn-update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.8rem;
+  background: rgba(44, 76, 59, 0.09);
+  color: var(--accent, #2c4c3b);
+  border: 1px solid rgba(44, 76, 59, 0.22);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(44, 76, 59, 0.06);
+}
+
+.btn-update-pill svg {
+  stroke: var(--accent, #2c4c3b);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.btn-update-pill:hover {
+  background: var(--accent, #2c4c3b);
+  color: #ffffff;
+  border-color: var(--accent, #2c4c3b);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(44, 76, 59, 0.2);
+}
+
+.btn-update-pill:hover svg {
+  stroke: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-update-pill:hover .update-pill-dot {
+  background-color: #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+}
+
+.update-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--accent, #2c4c3b);
+  display: inline-block;
+  animation: pillPulse 2s infinite ease-in-out;
+}
+
+@keyframes pillPulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+/* Popover Desplegable Superior de Actualización */
+.update-popover {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  right: 0;
   background: var(--panel-bg, #ffffff);
   color: var(--text-primary, #2c2a29);
   border: 1px solid var(--panel-border, #dcd7c8);
   border-left: 4px solid var(--accent, #2c4c3b);
   border-radius: 8px;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
-  min-width: 300px;
-  max-width: 360px;
-  padding: 1.1rem 1.25rem;
-  box-shadow: 0 10px 28px rgba(44, 42, 41, 0.14), 0 2px 6px rgba(44, 42, 41, 0.06);
+  width: 320px;
+  padding: 1.15rem 1.25rem;
+  box-shadow: 0 12px 32px rgba(44, 42, 41, 0.16), 0 2px 6px rgba(44, 42, 41, 0.08);
+  z-index: 1050;
+  animation: popoverSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.toast.update .toast-header {
+@keyframes popoverSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.update-popover-header {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -673,26 +746,28 @@ input:checked+.slider:before {
   font-family: var(--font-sans);
 }
 
-.toast.update .toast-header svg {
+.update-popover-header svg {
   stroke: var(--accent, #2c4c3b);
   flex-shrink: 0;
 }
 
-.toast.update .toast-body {
-  font-size: 0.85rem;
+.update-popover-body {
+  font-size: 0.84rem;
   color: var(--text-secondary, #6e6862);
   line-height: 1.45;
   font-family: var(--font-sans);
+  margin-top: 0.45rem;
 }
 
-.toast.update .toast-actions {
+.update-popover-actions {
   display: flex;
   gap: 0.6rem;
   width: 100%;
-  margin-top: 0.25rem;
+  margin-top: 0.85rem;
 }
 
-.toast.update .btn-update-now {
+/* Botones compartidos de actualización */
+.btn-update-now {
   flex: 1;
   padding: 0.55rem 0.9rem;
   background: var(--accent, #2c4c3b);
@@ -710,23 +785,23 @@ input:checked+.slider:before {
   justify-content: center;
 }
 
-.toast.update .btn-update-now:hover:not(:disabled) {
+.btn-update-now:hover:not(:disabled) {
   background: var(--accent-hover, #1a3326);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-.toast.update .btn-update-now:active:not(:disabled) {
+.btn-update-now:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow: none;
 }
 
-.toast.update .btn-update-now:disabled {
+.btn-update-now:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }
 
-.toast.update .btn-update-later {
+.btn-update-later {
   padding: 0.55rem 0.9rem;
   background: #f4f1ea;
   color: var(--text-secondary, #6e6862);
@@ -739,19 +814,47 @@ input:checked+.slider:before {
   transition: all 0.2s ease;
 }
 
-.toast.update .btn-update-later:hover:not(:disabled) {
+.btn-update-later:hover:not(:disabled) {
   background: #e8e4d9;
   color: var(--text-primary, #2c2a29);
   border-color: #c9c3b0;
 }
 
-.toast.update .btn-update-later:active:not(:disabled) {
+.btn-update-later:active:not(:disabled) {
   background: #dcd7c8;
 }
 
-.toast.update .btn-update-later:disabled {
+.btn-update-later:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+/* Banner de actualización dentro de Configuración */
+.settings-update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(44, 76, 59, 0.08);
+  border: 1px solid rgba(44, 76, 59, 0.2);
+  border-radius: 6px;
+  margin-top: 0.6rem;
+  gap: 0.8rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.settings-update-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--accent, #2c4c3b);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.settings-update-banner-info svg {
+  stroke: var(--accent, #2c4c3b);
+  flex-shrink: 0;
 }
 
 /* Recent Notes Widget */

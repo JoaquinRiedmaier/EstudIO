@@ -1199,6 +1199,7 @@ pub fn run() {
             crear_zip,
             extraer_zip,
             instalar_actualizacion,
+            verificar_actualizacion_manual,
             crear_slot_horario,
             borrar_slot_horario,
             mostrar_slots_horario,
@@ -1243,3 +1244,18 @@ async fn instalar_actualizacion(app: tauri::AppHandle) -> std::result::Result<()
     }
     Ok(())
 }
+
+/// Verifica manualmente si existe una actualización disponible.
+/// Retorna Some(version) si hay una nueva versión, o None si la app está al día.
+#[tauri::command]
+async fn verificar_actualizacion_manual(app: tauri::AppHandle) -> std::result::Result<Option<String>, String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    if let Some(update) = updater.check().await.map_err(|e| e.to_string())? {
+        app.emit("update-available", update.version.clone())
+            .unwrap_or_else(|e| eprintln!("[updater] Error emitiendo evento: {e}"));
+        Ok(Some(update.version))
+    } else {
+        Ok(None)
+    }
+}
+
