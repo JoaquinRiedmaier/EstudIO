@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EstudIO 📚✨ - Tu Espacio de Estudio Virtualizado</title>
+  <meta name="description" content="EstudIO es una aplicación de escritorio multiplataforma diseñada para virtualizar tu espacio de estudio: gestión de materias, editor de apuntes Markdown con TipTap, recordatorios y sincronización.">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Header & Navigation -->
+  <header class="header">
+    <div class="container nav-wrapper">
+      <a href="#" class="brand">
+        <img src="assets/icon.png" alt="EstudIO Logo" class="brand-logo">
+        <span class="brand-title">EstudIO</span>
+        <span class="brand-badge">v1.2.3</span>
+      </a>
+
+      <ul class="nav-links">
+        <li>
+          <a href="#download" class="btn-nav-download">Descargar</a>
+        </li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero" id="download">
+    <div class="container">
+      <div class="hero-pill">
+        <span class="dot"></span>
+        <span>Aplicación de Escritorio Multiplataforma • Ligera & Local</span>
+      </div>
+
+      <h1 class="hero-title">
+        Tu espacio de estudio <span class="highlight">virtualizado</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        Centralizá tus materias, redactá apuntes interactivos en Markdown con TipTap, gestioná tus recordatorios y organizá tus horarios universitarios en una aplicación moderna, privada y ultrarrápida.
+      </p>
+
+      <!-- Smart Download Card -->
+      <div class="download-card">
+        <div class="download-header">
+          <div class="os-detected-info">
+            <div class="os-icon-badge" id="os-icon">💻</div>
+            <div class="os-text">
+              <span class="os-label" id="os-name">Recomendado para tu sistema</span>
+              <span class="os-name" id="os-arch">Detectando arquitectura...</span>
+            </div>
+          </div>
+          <span class="release-version-badge" id="release-tag">v1.2.3</span>
+        </div>
+
+        <div class="download-cta-box">
+          <a href="https://github.com/JoaquinRiedmaier/EstudIO/releases/latest" id="btn-primary-download" class="btn-primary-download">
+            <span>🚀</span>
+            <span id="btn-download-text">Descargar EstudIO</span>
+          </a>
+          <div class="download-meta">
+            <span class="download-meta-item">🔒 100% Código Local y Privado</span>
+            <span class="download-meta-item" id="download-size">Instalador ejecutable</span>
+            <span class="download-meta-item">📜 Licencia Libre (MIT)</span>
+          </div>
+        </div>
+
+        <div class="alt-downloads-toggle">
+          <button type="button" class="btn-link-toggle" id="btn-toggle-alt">
+            ▼ Ver todas las plataformas y versiones (Windows, macOS, Linux)
+          </button>
+        </div>
+
+        <!-- All Platforms Accordion List -->
+        <div class="all-platforms-box" id="all-platforms-box">
+          <div id="alt-downloads-list">
+            <!-- Populated via app.js with direct release links -->
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">Cargando opciones de descarga...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Navigation Tabs -->
+  <section class="container tabs-section">
+    <ul class="nav-tabs">
+      <li>
+        <button type="button" class="tab-button active" data-tab="tab-features">
+          ✨ Funcionalidades
+        </button>
+      </li>
+      <li>
+        <button type="button" class="tab-button" data-tab="tab-guide">
+          ⌨️ Guía & Atajos
+        </button>
+      </li>
+      <li>
+        <button type="button" class="tab-button" data-tab="tab-changelog">
+          📜 Historial de Cambios (v1.2.3)
+        </button>
+      </li>
+      <li>
+        <button type="button" class="tab-button" data-tab="tab-stack">
+          🛠️ Stack Tecnológico
+        </button>
+      </li>
+    </ul>
+  </section>
+
+  <!-- Main Content Areas (Tabbed) -->
+  <main class="container">
+    
+    <!-- Tab 1: Features -->
+    <div class="tab-content active" id="tab-features">
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">📚</div>
+          <h3 class="feature-title">Gestión de Materias</h3>
+          <p class="feature-desc">
+            Organización completa de asignaturas anuales o cuatrimestrales. Incluye eliminación en cascada limpia de apuntes y recordatorios asociados.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">✍️</div>
+          <h3 class="feature-title">Editor TipTap + Pegado Nativo</h3>
+          <p class="feature-desc">
+            Editor WYSIWYG basado en TipTap que almacena todo en Markdown real (<code>.md</code>). Pegá capturas desde el portapapeles (<code>Ctrl+V</code>) para guardarlas en carpetas locales.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">⏰</div>
+          <h3 class="feature-title">Recordatorios y Alertas</h3>
+          <p class="feature-desc">
+            Agenda inteligente para entregas y exámenes con cálculo de alertas automáticas (desde 1 hora hasta 1 mes antes) y resumen diario en el panel de hoy.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">📅</div>
+          <h3 class="feature-title">Mini-Calendario Interactivo</h3>
+          <p class="feature-desc">
+            Visualizador mensual integrado en la barra lateral que marca tus eventos importantes para que nunca pierdas una fecha de examen o entrega.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">☁️</div>
+          <h3 class="feature-title">Sincronización Google Drive</h3>
+          <p class="feature-desc">
+            Backup automático en la nube. Creá copias en formato ZIP o autentícate con Gmail para restaurar tu información si cambiás de computadora.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">🎓</div>
+          <h3 class="feature-title">Horarios Universitarios</h3>
+          <p class="feature-desc">
+            Diseñá tu grilla semanal de cursada indicando materia, día, horario y aula. Exportá e importá tus horarios en JSON para compartirlos con compañeros.
+          </p>
+        </div>
+      </div>
+
+      <!-- Why Choose Section -->
+      <div class="why-section">
+        <h3 class="why-title">💡 ¿Por qué elegir EstudIO?</h3>
+        <div class="why-grid">
+          <div class="why-item">
+            <div class="why-item-icon">✓</div>
+            <div class="why-item-text">
+              <h4>Todo en un solo lugar</h4>
+              <p>Evitá fragmentar notas, agendas y carpetas. EstudIO reúne todo en una interfaz tipo libreta académica.</p>
+            </div>
+          </div>
+
+          <div class="why-item">
+            <div class="why-item-icon">🔒</div>
+            <div class="why-item-text">
+              <h4>Privacidad y Velocidad Local</h4>
+              <p>Construido con Rust (Tauri) y SQLite. El consumo de RAM es mínimo y tus archivos se guardan en tu disco.</p>
+            </div>
+          </div>
+
+          <div class="why-item">
+            <div class="why-item-icon">📂</div>
+            <div class="why-item-text">
+              <h4>Sin formatos propietarios</h4>
+              <p>Tus apuntes son archivos <code>.md</code> reales. Podés abrirlos con Obsidian, VS Code o cualquier editor de texto.</p>
+            </div>
+          </div>
+
+          <div class="why-item">
+            <div class="why-item-icon">🎨</div>
+            <div class="why-item-text">
+              <h4>Diseño Editorial Agradable</h4>
+              <p>Estética tipo papel cálido con verde biblioteca, distracción reducida y colapsado automático de menú lateral.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Guide & Shortcuts -->
+    <div class="tab-content" id="tab-guide">
+      <div class="guide-container">
+        <div class="guide-intro">
+          <h2>⌨️ Guía Rápida de Atajos</h2>
+          <p>Tomá apuntes a la velocidad de la luz utilizando la sintaxis de Markdown y los atajos nativos del editor:</p>
+        </div>
+
+        <div class="shortcuts-table-wrapper">
+          <table class="shortcuts-table">
+            <thead>
+              <tr>
+                <th>Acción / Formato</th>
+                <th>Sintaxis / Atajo de Teclado</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Título Principal (H1)</td>
+                <td><code># </code> + Espacio al inicio</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="# ">Copiar #</button></td>
+              </tr>
+              <tr>
+                <td>Subtítulo (H2)</td>
+                <td><code>## </code> + Espacio al inicio</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="## ">Copiar ##</button></td>
+              </tr>
+              <tr>
+                <td>Sub-subtítulo (H3)</td>
+                <td><code>### </code> + Espacio al inicio</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="### ">Copiar ###</button></td>
+              </tr>
+              <tr>
+                <td>Negrita</td>
+                <td><kbd>Ctrl</kbd> + <kbd>B</kbd> (o <kbd>Cmd</kbd> + <kbd>B</kbd>)</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="Ctrl+B">Copiar Atajo</button></td>
+              </tr>
+              <tr>
+                <td>Subrayado</td>
+                <td><kbd>Ctrl</kbd> + <kbd>U</kbd> (o <kbd>Cmd</kbd> + <kbd>U</kbd>)</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="Ctrl+U">Copiar Atajo</button></td>
+              </tr>
+              <tr>
+                <td>Cursiva / Itálica</td>
+                <td><kbd>Ctrl</kbd> + <kbd>I</kbd> (o <kbd>Cmd</kbd> + <kbd>I</kbd>)</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="Ctrl+I">Copiar Atajo</button></td>
+              </tr>
+              <tr>
+                <td>Resaltado Multicolor</td>
+                <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd></td>
+                <td><button class="btn-copy-shortcut" data-shortcut="Ctrl+Shift+H">Copiar Atajo</button></td>
+              </tr>
+              <tr>
+                <td>Bloque de Código</td>
+                <td><kbd>Ctrl</kbd> + <kbd>E</kbd></td>
+                <td><button class="btn-copy-shortcut" data-shortcut="Ctrl+E">Copiar Atajo</button></td>
+              </tr>
+              <tr>
+                <td>Bloque de Cita</td>
+                <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd></td>
+                <td><button class="btn-copy-shortcut" data-shortcut="Ctrl+Shift+B">Copiar Atajo</button></td>
+              </tr>
+              <tr>
+                <td><strong>Guardar Apunte Rápido</strong></td>
+                <td><kbd>Ctrl</kbd> + <kbd>S</kbd> (o <kbd>Cmd</kbd> + <kbd>S</kbd>)</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="Ctrl+S">Copiar Atajo</button></td>
+              </tr>
+              <tr>
+                <td>Pegar Imagen del Portapapeles</td>
+                <td><kbd>Ctrl</kbd> + <kbd>V</kbd> dentro del editor</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="Ctrl+V">Copiar Atajo</button></td>
+              </tr>
+              <tr>
+                <td>Lista con viñetas</td>
+                <td><code>- </code> + Espacio</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="- ">Copiar -</button></td>
+              </tr>
+              <tr>
+                <td>Lista numerada</td>
+                <td><code>1. </code> + Espacio</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="1. ">Copiar 1.</button></td>
+              </tr>
+              <tr>
+                <td>Línea divisoria</td>
+                <td><code>---</code> + Enter</td>
+                <td><button class="btn-copy-shortcut" data-shortcut="---">Copiar ---</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Changelog -->
+    <div class="tab-content" id="tab-changelog">
+      <div class="changelog-container">
+        <div class="changelog-timeline" id="changelog-timeline-container">
+          
+          <!-- Version 1.2.3 -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <span class="changelog-version">Versión 1.2.3</span>
+              <span class="changelog-date">3 de Septiembre, 2026</span>
+            </div>
+            <ul class="changelog-list">
+              <li class="changelog-item">
+                <span class="badge feature">Nueva Funcionalidad</span>
+                <span><strong>Horarios Universitarios:</strong> Creación y gestión de grillas de clases con materias, días, horas y aulas. Exportación e importación en formato JSON para compartir fácilmente.</span>
+              </li>
+              <li class="changelog-item">
+                <span class="badge feature">Nueva Funcionalidad</span>
+                <span><strong>Sincronización Google Drive:</strong> Respaldo automático de apuntes en ZIP y restauración directa mediante autenticación en la nube.</span>
+              </li>
+              <li class="changelog-item">
+                <span class="badge improvement">Mejora</span>
+                <span>Configuración rápida y sencilla de filas y columnas para la creación de tablas en el editor.</span>
+              </li>
+              <li class="changelog-item">
+                <span class="badge improvement">Mejora</span>
+                <span>Modo de distracción reducida: oculta paneles secundarios al escribir para maximizar el área de trabajo.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Version 1.0.2 -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <span class="changelog-version">Versión 1.0.2</span>
+              <span class="changelog-date">25 de Agosto, 2026</span>
+            </div>
+            <ul class="changelog-list">
+              <li class="changelog-item">
+                <span class="badge feature">Nueva Funcionalidad</span>
+                <span><strong>Atajo de Guardado Rápido:</strong> Presioná <kbd>Ctrl+S</kbd> (<kbd>Cmd+S</kbd> en macOS) para guardar tu apunte actual al instante sin cerrar el editor.</span>
+              </li>
+              <li class="changelog-item">
+                <span class="badge feature">Nueva Funcionalidad</span>
+                <span><strong>Verificador de Actualizaciones:</strong> Consulta al iniciar si existe una nueva versión lanzada en GitHub y permite actualizar con un solo clic.</span>
+              </li>
+              <li class="changelog-item">
+                <span class="badge fix">Fix</span>
+                <span>Normalización automática de rutas absolutas de imágenes (<code>asset://</code>) a rutas relativas en archivos ZIP importados.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Version 1.0.0 -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <span class="changelog-version">Versión 1.0.0 (Lanzamiento Inicial)</span>
+              <span class="changelog-date">11 de Julio, 2026</span>
+            </div>
+            <ul class="changelog-list">
+              <li class="changelog-item">
+                <span class="badge feature">Lanzamiento</span>
+                <span>Primera versión estable de EstudIO con editor Markdown TipTap, resaltador de colores, pegado directo de capturas y gestión de materias.</span>
+              </li>
+              <li class="changelog-item">
+                <span class="badge feature">Lanzamiento</span>
+                <span>Sistema de recordatorios integrados con alertas programadas (1 hora a 1 mes antes) y mini-calendario mensual.</span>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Tech Stack -->
+    <div class="tab-content" id="tab-stack">
+      <div class="stack-container">
+        <h3 class="stack-title">🛠️ Arquitectura & Tecnologías</h3>
+        <div class="stack-grid">
+          <div class="stack-card">
+            <h4>🦀 Rust + Tauri v2</h4>
+            <p>Backend ultrarrápido y seguro. Administra el sistema de archivos local, diálogos y portapapeles nativo.</p>
+          </div>
+
+          <div class="stack-card">
+            <h4>⚡ HTML5 & TypeScript</h4>
+            <p>Frontend liviano y modular en Vanilla TypeScript con compilación ultrarrápida mediante Vite.</p>
+          </div>
+
+          <div class="stack-card">
+            <h4>🗄️ SQLite (mi_DB.db3)</h4>
+            <p>Base de datos relacional local sin servidor para almacenar materias, eventos y metadatos con máxima velocidad.</p>
+          </div>
+
+          <div class="stack-card">
+            <h4>📝 TipTap (ProseMirror)</h4>
+            <p>Motor de edición extensible con soporte WYSIWYG y exportación directa a formato Markdown estándar (.md).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <img src="assets/icon.png" alt="EstudIO Logo" style="width: 32px; height: 32px; border-radius: 6px;">
+          <span class="footer-title">EstudIO</span>
+        </div>
+
+        <ul class="footer-links">
+          <li><a href="https://github.com/JoaquinRiedmaier/EstudIO" target="_blank" rel="noopener">Repositorio GitHub</a></li>
+          <li><a href="https://github.com/JoaquinRiedmaier/EstudIO/releases" target="_blank" rel="noopener">Todas las Releases</a></li>
+          <li><a href="https://github.com/JoaquinRiedmaier/EstudIO/blob/main/LICENSE" target="_blank" rel="noopener">Licencia GPL-3.0</a></li>
+          <li><a href="privacidad.html">Privacidad</a></li>
+          <li><a href="terminos.html">Términos</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-bottom">
+        <p>© 2026 EstudIO. Proyecto de Código Abierto alojado en GitHub Pages. Sin servidores propios, sin datos tuyos.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

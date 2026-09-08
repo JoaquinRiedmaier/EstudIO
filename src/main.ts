@@ -1,5 +1,7 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { confirm, open } from "@tauri-apps/plugin-dialog";
+import { confirm, open, save } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
+
 import { readImage } from "@tauri-apps/plugin-clipboard-manager";
 import { seleccionarRuta } from "./file";
 import { Editor, Extension } from "@tiptap/core";
@@ -92,6 +94,7 @@ interface Apunte {
   fecha_creacion: string;
   ult_modificacion: string;
   ruta: string;
+  sincronizar_drive?: boolean;
 }
 
 interface Evento {
@@ -103,9 +106,20 @@ interface Evento {
   descripcion: string;
 }
 
+interface SlotHorario {
+  id_slot: number;
+  titulo: string;
+  dia_semana: number;
+  hora_inicio: number; // minutos desde medianoche
+  hora_fin: number;
+  color: string;
+  aula: string | null;
+}
+
 // State
 let materiasCache: Materia[] = [];
 let eventosCache: Evento[] = [];
+let slotsCache: SlotHorario[] = [];
 let currentCalendarDate = new Date();
 let editorInstancia: Editor | null = null;
 let currentEditPath: string = "";
@@ -124,13 +138,10 @@ const CustomPasteExtension = Extension.create({
         key: new PluginKey("customPasteHandler"),
         props: {
           handlePaste(_view, event, _slice) {
-            console.log("CustomPasteExtension: Interceptando evento de pegado");
-
             // Si hay texto o HTML en el portapapeles, delegamos al comportamiento nativo de ProseMirror/TipTap
             if (event.clipboardData) {
               const types = event.clipboardData.types;
               if (types.includes("text/plain") || types.includes("text/html")) {
-                console.log("Detectado texto/HTML en el portapapeles, delegando a TipTap");
                 return false;
               }
             }
@@ -141,7 +152,6 @@ const CustomPasteExtension = Extension.create({
 
             (async () => {
               try {
-                console.log("Intentando leer imagen desde el portapapeles de Tauri...");
                 const clipboardImage = await readImage();
 
                 const size = await clipboardImage.size();
@@ -167,7 +177,6 @@ const CustomPasteExtension = Extension.create({
                 }
                 const base64Data = dataUrl.substring(commaIdx + 1);
 
-                console.log("Guardando imagen en el backend...");
                 const rutaRelativa = await invoke<string>("paste_imagen", {
                   rutaApunte: currentEditPath,
                   imagen: base64Data,
@@ -213,10 +222,106 @@ document.addEventListener("DOMContentLoaded", () => {
   setupModal();
   setupEditor();
   setupZipActions();
+  setupHorarios();
+  setupSettings();
+  setupBienvenida();
+  setupCloudSync();
+  setupDriveImport();
   cargarUltimosModificados();
   cargarMaterias();
   cargarRecordatoriosHoy();
+  sincronizarApuntesAlInicio();
 });
+
+// ─── Settings & Welcome ────────────────────────────────────────────────────
+
+function abrirModal(id: string) {
+  document.getElementById(id)?.classList.add("active");
+}
+
+function cerrarModal(id: string) {
+  document.getElementById(id)?.classList.remove("active");
+}
+
+function setupSettings() {
+  // Abrir settings
+  document.getElementById("btn-settings")?.addEventListener("click", () => {
+    abrirModal("modal-settings");
+  });
+
+  // Cerrar settings al hacer clic fuera del contenido
+  document.getElementById("modal-settings")?.addEventListener("click", (e) => {
+    if ((e.target as HTMLElement).id === "modal-settings") {
+      cerrarModal("modal-settings");
+    }
+  });
+
+  document
+    .getElementById("btn-cerrar-settings")
+    ?.addEventListener("click", () => {
+      cerrarModal("modal-settings");
+    });
+
+  // Desde settings → abrir atajos
+  document.getElementById("btn-ver-atajos")?.addEventListener("click", () => {
+    cerrarModal("modal-settings");
+    abrirModal("modal-atajos");
+  });
+
+  // Desde settings → abrir sitio web oficial
+  document.getElementById("btn-sitio-web")?.addEventListener("click", () => {
+    openUrl("https://joaquinriedmaier.github.io/EstudIO/").catch(console.error);
+  });
+
+  // Cerrar atajos
+  document.getElementById("modal-atajos")?.addEventListener("click", (e) => {
+    if ((e.target as HTMLElement).id === "modal-atajos") {
+      cerrarModal("modal-atajos");
+    }
+  });
+
+  document
+    .getElementById("btn-cerrar-atajos")
+    ?.addEventListener("click", () => {
+      cerrarModal("modal-atajos");
+    });
+
+  // Abrir enlaces externos en el navegador predeterminado del sistema
+  document.addEventListener("click", (e) => {
+    const link = (e.target as HTMLElement).closest("a");
+    if (link && link.href && (link.href.startsWith("http://") || link.href.startsWith("https://"))) {
+      e.preventDefault();
+      openUrl(link.href).catch(console.error);
+    }
+  });
+}
+
+function setupBienvenida() {
+  const STORAGE_KEY = "estudio_bienvenida_v1";
+  const yaVisto = localStorage.getItem(STORAGE_KEY);
+
+  if (!yaVisto) {
+    // Primera vez: mostrar el modal de bienvenida
+    setTimeout(() => abrirModal("modal-bienvenida"), 300);
+  }
+
+  document
+    .getElementById("btn-cerrar-bienvenida")
+    ?.addEventListener("click", () => {
+      localStorage.setItem(STORAGE_KEY, "1");
+      cerrarModal("modal-bienvenida");
+    });
+
+  // También cerrar al hacer clic fuera
+  document
+    .getElementById("modal-bienvenida")
+    ?.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).id === "modal-bienvenida") {
+        localStorage.setItem(STORAGE_KEY, "1");
+        cerrarModal("modal-bienvenida");
+      }
+    });
+}
 
 function getTodayBackendDate(): string {
   const now = new Date();
@@ -229,6 +334,21 @@ function getTodayBackendDate(): string {
 function getParentDirFromPath(filePath: string): string {
   const lastSlash = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
   return lastSlash !== -1 ? filePath.substring(0, lastSlash) : "";
+}
+
+function recortarRutaRecursos(src: string): string {
+  if (!src) return src;
+  let decoded = src;
+  try {
+    decoded = decodeURIComponent(src);
+  } catch (_) {}
+
+  // Extrae .recursos/<nombre_archivo> independientemente de si viene como asset://, file://, o con codificación
+  const match = decoded.match(/\.recursos[\/\\]([^\s"')<>]+)/);
+  if (match) {
+    return `.recursos/${match[1]}`;
+  }
+  return src;
 }
 
 function joinPath(dir: string, fileName: string): string {
@@ -369,6 +489,14 @@ function setupNavigation() {
 
   navBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
+      // Remove editor mode if navigating away via sidebar
+      const appContainer = document.querySelector(".app-container");
+      if (appContainer) {
+        appContainer.classList.remove("editor-mode");
+        appContainer.classList.remove("sidebar-collapsed");
+        appContainer.classList.remove("sidebar-visible");
+      }
+
       // Update active button
       navBtns.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
@@ -420,11 +548,341 @@ function setupNavigation() {
         cargarMaterias();
       } else if (targetId === "view-recordatorios") {
         cargarRecordatorios();
+      } else if (targetId === "view-horarios") {
+        cargarHorarios();
       }
       cargarRecordatoriosHoy();
     });
   });
 }
+
+// ─── Helpers de horario ────────────────────────────────────────────────────
+
+/** Convierte "HH:MM" a minutos desde medianoche */
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Convierte minutos a "HH:MM" */
+function minutesToTime(mins: number): string {
+  const hh = Math.floor(mins / 60).toString().padStart(2, "0");
+  const mm = (mins % 60).toString().padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+const DIAS_NOMBRES: Record<number, string> = {
+  0: "Domingo",
+  1: "Lunes",
+  2: "Martes",
+  3: "Miércoles",
+  4: "Jueves",
+  5: "Viernes",
+  6: "Sábado",
+};
+
+async function cargarHorarios() {
+  try {
+    slotsCache = await invoke<SlotHorario[]>("mostrar_slots_horario");
+    renderizarGrillaHorario();
+  } catch (err) {
+    showToast(`Error cargando horario: ${err}`, "error");
+  }
+  // Poblar datalist de autocompletado con materias existentes
+  const dl = document.getElementById("datalist-materias-horario");
+  if (dl) {
+    dl.innerHTML = "";
+    (materiasCache.length
+      ? Promise.resolve(materiasCache)
+      : invoke<Materia[]>("mostrar_materias")
+    )
+      .then((ms) => {
+        materiasCache = ms;
+        ms.forEach((m) => {
+          const opt = document.createElement("option");
+          opt.value = m.nombre;
+          dl.appendChild(opt);
+        });
+      })
+      .catch(() => {});
+  }
+}
+
+function renderizarGrillaHorario() {
+  const grid = document.getElementById("horario-grid");
+  const emptyMsg = document.getElementById("horario-empty-msg");
+  if (!grid) return;
+
+  grid.innerHTML = "";
+
+  if (slotsCache.length === 0) {
+    emptyMsg?.classList.add("visible");
+    return;
+  }
+  emptyMsg?.classList.remove("visible");
+
+  // Agrupar por día en orden Lunes → Domingo
+  const diasOrden = [1, 2, 3, 4, 5, 6, 0];
+  const porDia = new Map<number, SlotHorario[]>();
+  for (const slot of slotsCache) {
+    if (!porDia.has(slot.dia_semana)) porDia.set(slot.dia_semana, []);
+    porDia.get(slot.dia_semana)!.push(slot);
+  }
+
+  for (const dia of diasOrden) {
+    const slots = porDia.get(dia);
+    if (!slots || slots.length === 0) continue;
+
+    const col = document.createElement("div");
+    col.className = "horario-dia-col";
+
+    const header = document.createElement("div");
+    header.className = "horario-dia-header";
+    header.textContent = DIAS_NOMBRES[dia];
+    col.appendChild(header);
+
+    for (const slot of slots) {
+      // Detectar solapamiento con otros slots del mismo día
+      const solapa = slots.some(
+        (otro) =>
+          otro.id_slot !== slot.id_slot &&
+          slot.hora_inicio < otro.hora_fin &&
+          slot.hora_fin > otro.hora_inicio,
+      );
+
+      const card = document.createElement("div");
+      card.className = "slot-card" + (solapa ? " solapado" : "");
+      card.style.borderLeftColor = slot.color;
+
+      const aulaHtml = slot.aula
+        ? `<div class="slot-card-aula">📍 ${slot.aula}</div>`
+        : "";
+
+      card.innerHTML = `
+        <div class="slot-card-titulo">${slot.titulo}</div>
+        <div class="slot-card-hora">${minutesToTime(slot.hora_inicio)} – ${minutesToTime(slot.hora_fin)}</div>
+        ${aulaHtml}
+        <button class="slot-card-del" title="Eliminar bloque" aria-label="Eliminar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+          </svg>
+        </button>
+      `;
+
+      const delBtn = card.querySelector(".slot-card-del") as HTMLButtonElement;
+      delBtn.addEventListener("click", async () => {
+        try {
+          await invoke<string>("borrar_slot_horario", { idSlot: slot.id_slot });
+          slotsCache = slotsCache.filter((s) => s.id_slot !== slot.id_slot);
+          renderizarGrillaHorario();
+          showToast("Bloque eliminado", "success");
+        } catch (err) {
+          showToast(`Error al borrar bloque: ${err}`, "error");
+        }
+      });
+
+      col.appendChild(card);
+    }
+
+    grid.appendChild(col);
+  }
+}
+
+function setupHorarios() {
+  // Modal nuevo bloque horario
+  const modalSlot = document.getElementById("modal-slot");
+  const btnNuevoSlot = document.getElementById("btn-nuevo-slot");
+  const closeBtnModalSlot = document.getElementById("close-modal-slot");
+
+  btnNuevoSlot?.addEventListener("click", () => {
+    abrirModal("modal-slot");
+    setTimeout(() => {
+      (document.getElementById("slot-titulo") as HTMLInputElement)?.focus();
+    }, 50);
+  });
+
+  closeBtnModalSlot?.addEventListener("click", () => {
+    cerrarModal("modal-slot");
+  });
+
+  modalSlot?.addEventListener("click", (e) => {
+    if (e.target === modalSlot) {
+      cerrarModal("modal-slot");
+    }
+  });
+
+  // Handler del formulario
+  const formSlot = document.getElementById("form-slot");
+  formSlot?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const titulo = (
+      document.getElementById("slot-titulo") as HTMLInputElement
+    ).value.trim();
+    const dia = parseInt(
+      (document.getElementById("slot-dia") as HTMLSelectElement).value,
+    );
+    const inicioStr = (
+      document.getElementById("slot-inicio") as HTMLInputElement
+    ).value;
+    const finStr = (
+      document.getElementById("slot-fin") as HTMLInputElement
+    ).value;
+    const color = (
+      document.getElementById("slot-color") as HTMLInputElement
+    ).value;
+    const aulaVal = (
+      document.getElementById("slot-aula") as HTMLInputElement
+    ).value.trim();
+
+    if (!inicioStr || !finStr) {
+      showToast("Completá las horas de inicio y fin", "error");
+      return;
+    }
+
+    const inicio = timeToMinutes(inicioStr);
+    const fin = timeToMinutes(finStr);
+
+    if (fin <= inicio) {
+      showToast(
+        "La hora de fin debe ser posterior a la hora de inicio",
+        "error",
+      );
+      return;
+    }
+
+    // Detección de solapamiento
+    const slotsMismoDia = slotsCache.filter((s) => s.dia_semana === dia);
+    const solapa = slotsMismoDia.some(
+      (s) => inicio < s.hora_fin && fin > s.hora_inicio,
+    );
+
+    if (solapa) {
+      const seguir = await confirm(
+        "Este bloque se superpone con otro bloque del mismo día. ¿Deseás agregarlo de todas formas?",
+      );
+      if (!seguir) return;
+    }
+
+    try {
+      await invoke<string>("crear_slot_horario", {
+        titulo,
+        diaSemana: dia,
+        horaInicio: inicio,
+        horaFin: fin,
+        color,
+        aula: aulaVal || null,
+      });
+      showToast("Bloque agregado al horario", "success");
+      (formSlot as HTMLFormElement).reset();
+      // Resetear selección de color
+      const swatches = document.querySelectorAll(".slot-color-swatch");
+      swatches.forEach((sw) => sw.classList.remove("active"));
+      swatches[0]?.classList.add("active");
+      (document.getElementById("slot-color") as HTMLInputElement).value =
+        "#2c4c3b";
+
+      await cargarHorarios();
+      cerrarModal("modal-slot");
+    } catch (err) {
+      showToast(`Error al guardar: ${err}`, "error");
+    }
+  });
+
+  // Paleta de colores
+  const swatches = document.querySelectorAll(".slot-color-swatch");
+  swatches.forEach((sw) => {
+    sw.addEventListener("click", () => {
+      swatches.forEach((s) => s.classList.remove("active"));
+      sw.classList.add("active");
+      const color = (sw as HTMLElement).dataset.color || "#2c4c3b";
+      (document.getElementById("slot-color") as HTMLInputElement).value = color;
+    });
+  });
+
+  // Botón Borrar todo
+  const btnBorrarTodos = document.getElementById(
+    "btn-borrar-todos-slots",
+  ) as HTMLButtonElement;
+  btnBorrarTodos?.addEventListener("click", async () => {
+    if (slotsCache.length === 0) {
+      showToast("El horario ya está vacío", "error");
+      return;
+    }
+    const ok = await confirm(
+      "¿Estás seguro de que deseas borrar todos los bloques del horario? Esta acción no se puede deshacer.",
+    );
+    if (!ok) return;
+    try {
+      await invoke<string>("borrar_todos_slots");
+      slotsCache = [];
+      renderizarGrillaHorario();
+      showToast("Horario borrado", "success");
+    } catch (err) {
+      showToast(`Error: ${err}`, "error");
+    }
+  });
+
+  // ── Exportar horario ─────────────────────────────────────────────────────
+  const btnExportarHorario = document.getElementById(
+    "btn-exportar-horario",
+  ) as HTMLButtonElement | null;
+  btnExportarHorario?.addEventListener("click", async () => {
+    if (slotsCache.length === 0) {
+      showToast("No hay bloques para exportar", "error");
+      return;
+    }
+    try {
+      const rutaDestino = await save({
+        title: "Exportar horario",
+        defaultPath: "mi_horario.json",
+        filters: [{ name: "Horario EstudIO", extensions: ["json"] }],
+      });
+      if (!rutaDestino) return; // El usuario canceló
+      await invoke("exportar_horario", { rutaDestino });
+      showToast("Horario exportado correctamente", "success");
+    } catch (err) {
+      showToast(`Error al exportar: ${err}`, "error");
+    }
+  });
+
+  // ── Importar horario ─────────────────────────────────────────────────────
+  const btnImportarHorario = document.getElementById(
+    "btn-importar-horario",
+  ) as HTMLButtonElement | null;
+  btnImportarHorario?.addEventListener("click", async () => {
+    try {
+      const rutaArchivo = await open({
+        title: "Importar horario",
+        multiple: false,
+        filters: [{ name: "Horario EstudIO", extensions: ["json", "hrf"] }],
+      });
+      if (!rutaArchivo) return; // El usuario canceló
+
+      // Preguntar modo de importación
+      const reemplazar = await confirm(
+        "¿Deseás reemplazar el horario actual con el del archivo?\n\n" +
+        "• Aceptar → reemplaza todo el horario actual.\n" +
+        "• Cancelar → agrega los bloques al horario existente.",
+        { title: "Importar horario", kind: "warning" },
+      );
+
+      const insertados = await invoke<number>("importar_horario", {
+        rutaArchivo,
+        reemplazar,
+      });
+      await cargarHorarios();
+      showToast(
+        `${insertados} bloque${insertados !== 1 ? "s" : ""} importado${insertados !== 1 ? "s" : ""} correctamente`,
+        "success",
+      );
+    } catch (err) {
+      showToast(`Error al importar: ${err}`, "error");
+    }
+  });
+}
+
 
 function setupForms() {
   const matAnual = document.getElementById("mat-anual") as HTMLInputElement;
@@ -583,12 +1041,54 @@ function setupForms() {
   });
 }
 
+function initTipTapEditor(): Editor | null {
+  if (editorInstancia) return editorInstancia;
+  try {
+    const container = document.getElementById("tiptap-editor");
+    if (container) {
+      editorInstancia = new Editor({
+        element: container,
+        extensions: [
+          CustomPasteExtension,
+          StarterKit,
+          TabExtension,
+          Table.configure({ resizable: true }),
+          TableRow,
+          TableHeader,
+          TableCell,
+          Highlight.configure({ multicolor: true }),
+          Image.configure({
+            resize: {
+              enabled: true,
+              alwaysPreserveAspectRatio: true,
+            },
+          }),
+          Markdown,
+        ],
+        content: "",
+        onTransaction: () => {
+          updateToolbarActiveStates();
+        },
+      });
+    }
+  } catch (e) {
+    console.error("Error al inicializar Tiptap Editor:", e);
+  }
+  return editorInstancia;
+}
+
 function setupEditor() {
-  console.log("Iniciando setupEditor (eventos)...");
+
+  // Pre-inicializar TipTap en segundo plano para apertura inmediata de apuntes
+  if ("requestIdleCallback" in window) {
+    (window as any).requestIdleCallback(() => initTipTapEditor());
+  } else {
+    setTimeout(() => initTipTapEditor(), 100);
+  }
 
   const btnCerrar = document.getElementById("btn-editor-cerrar");
   const btnGuardar = document.getElementById("btn-editor-guardar");
-  const btnGuardarCerrar = document.getElementById("btn-editor-guardar-cerrar");
+  const btnGuardarCerrar = document.getElementById("btn-editor-guardar-cerrar") as HTMLButtonElement | null;
   const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
   const btnExportarZip = document.getElementById("btn-editor-exportar-zip") as HTMLButtonElement | null;
 
@@ -602,7 +1102,43 @@ function setupEditor() {
 
   btnGuardarCerrar?.addEventListener("click", async () => {
     const exito = await guardarApunteActual();
-    if (exito) cerrarEditor();
+    if (exito) {
+      if (currentEditSincronizarDrive && currentEditPath) {
+        setButtonLoading(btnGuardarCerrar, true, "Subiendo a Drive…");
+        actualizarIconoNubecita("syncing");
+        try {
+          await invoke("subir_apunte_drive", { pathApunte: currentEditPath });
+          showToast("Apunte guardado y sincronizado en Google Drive", "success");
+          actualizarIconoNubecita("synced");
+        } catch (err: any) {
+          console.error("Error al sincronizar con Drive:", err);
+          showToast(`Guardado localmente. Error al sincronizar con Drive: ${err}`, "error");
+          actualizarIconoNubecita(isGoogleDriveConnected ? "synced" : "unlinked");
+        } finally {
+          setButtonLoading(btnGuardarCerrar, false);
+        }
+      }
+      cerrarEditor();
+    }
+  });
+
+  const btnToggleDrive = document.getElementById("btn-editor-toggle-drive");
+  btnToggleDrive?.addEventListener("click", async () => {
+    if (currentEditCodigo === null) return;
+    currentEditSincronizarDrive = !currentEditSincronizarDrive;
+    actualizarToggleDriveUI(currentEditSincronizarDrive);
+    try {
+      await invoke("cambiar_sincronizar_drive", {
+        codigoApunte: currentEditCodigo,
+        sincronizar: currentEditSincronizarDrive,
+      });
+      showToast(
+        `Sincronización con Drive ${currentEditSincronizarDrive ? "activada" : "desactivada"}`,
+        "success",
+      );
+    } catch (e: any) {
+      console.error("Error al cambiar sincronizar_drive:", e);
+    }
   });
 
   // ── Atajo de teclado: Ctrl+S / Cmd+S para guardar ──────────────────────────
@@ -632,6 +1168,62 @@ function setupEditor() {
     tableDropdownContent?.classList.toggle("show");
   });
 
+  // ── Table Grid Picker ────────────────────────────────────────────────────
+  const btnInsertTable = document.getElementById("btn-insert-table");
+  const tableGridPicker = document.getElementById("table-grid-picker");
+  const tableGridCells = document.getElementById("table-grid-cells");
+  const tableGridLabel = document.getElementById("table-grid-label");
+  const GRID_COLS = 8;
+  const GRID_ROWS = 8;
+
+  // Build the 8×8 cell grid
+  if (tableGridCells) {
+    for (let r = 1; r <= GRID_ROWS; r++) {
+      for (let c = 1; c <= GRID_COLS; c++) {
+        const cell = document.createElement("div");
+        cell.className = "table-grid-cell";
+        cell.dataset.row = String(r);
+        cell.dataset.col = String(c);
+        tableGridCells.appendChild(cell);
+      }
+    }
+  }
+
+  function updateGridHighlight(rows: number, cols: number) {
+    tableGridCells?.querySelectorAll(".table-grid-cell").forEach((el) => {
+      const cell = el as HTMLElement;
+      const r = Number(cell.dataset.row);
+      const c = Number(cell.dataset.col);
+      cell.classList.toggle("highlighted", r <= rows && c <= cols);
+    });
+    if (tableGridLabel) tableGridLabel.textContent = `${cols} × ${rows}`;
+  }
+
+  btnInsertTable?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    tableGridPicker?.classList.toggle("show");
+    if (tableGridPicker?.classList.contains("show")) {
+      updateGridHighlight(1, 1);
+    }
+  });
+
+  tableGridCells?.addEventListener("mouseover", (e) => {
+    const cell = (e.target as HTMLElement).closest(".table-grid-cell") as HTMLElement | null;
+    if (!cell) return;
+    updateGridHighlight(Number(cell.dataset.row), Number(cell.dataset.col));
+  });
+
+  tableGridCells?.addEventListener("click", (e) => {
+    const cell = (e.target as HTMLElement).closest(".table-grid-cell") as HTMLElement | null;
+    if (!cell) return;
+    const rows = Number(cell.dataset.row);
+    const cols = Number(cell.dataset.col);
+    tableGridPicker?.classList.remove("show");
+    if (editorInstancia) {
+      editorInstancia.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+    }
+  });
+
   window.addEventListener("click", (e) => {
     if (!btnExportarMenu?.contains(e.target as Node)) {
       if (dropdownContent?.classList.contains("show")) {
@@ -642,6 +1234,9 @@ function setupEditor() {
       if (tableDropdownContent?.classList.contains("show")) {
         tableDropdownContent.classList.remove("show");
       }
+    }
+    if (!btnInsertTable?.closest(".table-insert-wrapper")?.contains(e.target as Node)) {
+      tableGridPicker?.classList.remove("show");
     }
   });
 
@@ -694,8 +1289,7 @@ function setupEditor() {
       "left: 0",
       "right: 0",
       "bottom: 0",
-      "background: rgba(44, 42, 41, 0.7)",
-      "backdrop-filter: blur(3px)",
+      "background: rgba(35, 32, 28, 0.75)",
       "z-index: 1000000",
       "display: flex",
       "flex-direction: column",
@@ -1017,9 +1611,7 @@ function setupEditor() {
           case "blockquote":
             chain.toggleBlockquote().run();
             break;
-          case "insertTable":
-            chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-            break;
+          // insertTable is handled by the grid picker (btn-insert-table)
           case "addColumnBefore":
             chain.addColumnBefore().run();
             break;
@@ -1190,6 +1782,8 @@ function updateToolbarActiveStates() {
 function cerrarEditor() {
   currentEditPath = "";
   currentEditCodigo = null;
+  currentEditSincronizarDrive = false;
+  actualizarToggleDriveUI(false);
   if (editorInstancia) {
     editorInstancia.commands.setContent("");
   }
@@ -1206,7 +1800,21 @@ function cerrarEditor() {
   document.getElementById("view-materias")?.classList.add("active");
 
   const titleEl = document.getElementById("view-title");
-  if (titleEl) titleEl.textContent = "Materias";
+  if (titleEl) {
+    titleEl.textContent = "Materias";
+    titleEl.style.display = "none";
+  }
+
+  const topbarTabs = document.getElementById("topbar-tabs");
+  if (topbarTabs) {
+    topbarTabs.style.display = "flex";
+    document
+      .querySelectorAll(".topbar-tab")
+      .forEach((t) => t.classList.remove("active"));
+    document
+      .querySelector(".topbar-tab[data-tab-target='view-materias']")
+      ?.classList.add("active");
+  }
 
   const navBtns = document.querySelectorAll(".nav-btn");
   navBtns.forEach((b) => {
@@ -1216,6 +1824,7 @@ function cerrarEditor() {
     }
   });
 
+  cargarMaterias();
   cargarRecordatoriosHoy();
 }
 
@@ -1231,10 +1840,7 @@ async function guardarApunteActual(): Promise<boolean> {
     imgs.forEach((img) => {
       const src = img.getAttribute("src");
       if (src) {
-        const idx = src.indexOf(".recursos/");
-        if (idx !== -1) {
-          img.setAttribute("src", src.substring(idx));
-        }
+        img.setAttribute("src", recortarRutaRecursos(src));
       }
     });
     const finalHtml = doc.body.innerHTML;
@@ -2154,16 +2760,14 @@ async function cargarUltimosModificados() {
   }
 }
 async function abrirEditor(apunte: Apunte) {
-  console.log(`Intentando abrir apunte en ruta: ${apunte.ruta}`);
   try {
-    const content = await invoke<string>("abrir_apunte", { path: apunte.ruta });
-    console.log(
-      `Contenido leído correctamente (${content.length} caracteres).`,
-    );
+    // 1. Cerrar cualquier modal abierto inmediatamente
+    const modalVer = document.getElementById("modal-ver-apuntes");
+    if (modalVer) modalVer.classList.remove("active");
+    const modalApu = document.getElementById("modal-apunte");
+    if (modalApu) modalApu.classList.remove("active");
 
-    const modal = document.getElementById("modal-ver-apuntes");
-    if (modal) modal.classList.remove("active");
-
+    // 2. Activar la vista del editor de inmediato para feedback instantáneo
     const views = document.querySelectorAll(".view");
     views.forEach((v) => v.classList.remove("active"));
     document.getElementById("view-editor-apunte")?.classList.add("active");
@@ -2173,84 +2777,501 @@ async function abrirEditor(apunte: Apunte) {
       appContainer.classList.add("editor-mode");
     }
 
-    cargarRecordatoriosHoy();
-
     const titleEl = document.getElementById("view-title");
     if (titleEl) titleEl.textContent = `Editando: ${apunte.tema}`;
 
     const editorTitle = document.getElementById("editor-title");
     if (editorTitle) editorTitle.textContent = apunte.tema;
 
-    if (!editorInstancia) {
-      try {
-        const container = document.getElementById("tiptap-editor");
-        if (container) {
-          editorInstancia = new Editor({
-            element: container,
-            extensions: [
-              CustomPasteExtension,
-              StarterKit,
-              TabExtension,
-              Table.configure({ resizable: true }),
-              TableRow,
-              TableHeader,
-              TableCell,
-              Highlight.configure({ multicolor: true }),
-              Image.configure({
-                resize: {
-                  enabled: true,
-                  alwaysPreserveAspectRatio: true,
-                },
-              }),
-              Markdown,
-            ],
-            content: "",
-            onTransaction: () => {
-              updateToolbarActiveStates();
-            },
-          });
-          console.log("Tiptap Editor inicializado correctamente.");
-        }
-      } catch (e) {
-        console.error("Error al inicializar Tiptap Editor:", e);
-      }
-    }
-
-    if (editorInstancia) {
-      console.log("Seteando valor en el editor...");
-      const htmlContent = await marked.parse(content);
-
-      const lastSlash = Math.max(
-        apunte.ruta.lastIndexOf("/"),
-        apunte.ruta.lastIndexOf("\\"),
-      );
-      const parentDir =
-        lastSlash !== -1 ? apunte.ruta.substring(0, lastSlash) : "";
-
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(htmlContent, "text/html");
-      const imgs = doc.querySelectorAll("img");
-      imgs.forEach((img) => {
-        const src = img.getAttribute("src");
-        if (src && src.startsWith(".recursos/")) {
-          const absolutePath = parentDir ? `${parentDir}/${src}` : src;
-          const assetUrl = convertFileSrc(absolutePath);
-          img.setAttribute("src", assetUrl);
-        }
-      });
-      const finalHtmlContent = doc.body.innerHTML;
-
-      editorInstancia.commands.setContent(finalHtmlContent);
-    } else {
-      console.error("editorInstancia es null, no se pudo establecer el valor.");
-    }
-    currentEditPath = apunte.ruta;
-    currentEditCodigo = apunte.codigo_apunte;
-
     const navBtns = document.querySelectorAll(".nav-btn");
     navBtns.forEach((b) => b.classList.remove("active"));
+
+    currentEditPath = apunte.ruta;
+    currentEditCodigo = apunte.codigo_apunte;
+    currentEditSincronizarDrive = !!apunte.sincronizar_drive;
+    actualizarToggleDriveUI(currentEditSincronizarDrive);
+
+    // Asegurar que TipTap esté disponible
+    const editor = initTipTapEditor();
+
+    // 3. Leer el contenido del archivo desde el backend
+    const content = await invoke<string>("abrir_apunte", { path: apunte.ruta });
+
+    // 4. Desacoplar el parseo y renderizado pesado al siguiente frame para mantener la animación fluida
+    requestAnimationFrame(async () => {
+      if (editor) {
+        const htmlContent = await marked.parse(content);
+
+        const lastSlash = Math.max(
+          apunte.ruta.lastIndexOf("/"),
+          apunte.ruta.lastIndexOf("\\"),
+        );
+        const parentDir =
+          lastSlash !== -1 ? apunte.ruta.substring(0, lastSlash) : "";
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, "text/html");
+        const imgs = doc.querySelectorAll("img");
+        imgs.forEach((img) => {
+          const src = img.getAttribute("src");
+          if (src) {
+            const rel = recortarRutaRecursos(src);
+            if (rel.startsWith(".recursos/")) {
+              const absolutePath = parentDir ? `${parentDir}/${rel}` : rel;
+              const assetUrl = convertFileSrc(absolutePath);
+              img.setAttribute("src", assetUrl);
+            }
+          }
+        });
+        const finalHtmlContent = doc.body.innerHTML;
+
+        editor.commands.setContent(finalHtmlContent);
+      } else {
+        console.error("editorInstancia es null, no se pudo establecer el valor.");
+      }
+    });
+
+    cargarRecordatoriosHoy();
   } catch (error: any) {
     console.error("Error al abrir apunte:", error);
     showToast(`Error al abrir apunte: ${error}`, "error");
+  }
+}
+
+// ─── Google Drive Cloud Sync & Import ──────────────────────────────────────────
+let currentEditSincronizarDrive: boolean = false;
+let isGoogleDriveConnected: boolean = false;
+let selectedDriveFileId: string | null = null;
+let selectedDriveFileName: string | null = null;
+
+type CloudStatus = "offline" | "syncing" | "synced" | "unlinked";
+
+function actualizarToggleDriveUI(activo: boolean) {
+  const btn = document.getElementById("btn-editor-toggle-drive");
+  const text = document.getElementById("text-editor-drive-sync");
+  if (btn) {
+    if (activo) {
+      btn.classList.add("drive-active");
+      if (text) text.textContent = "Drive: Activo";
+      btn.title = "Sincronización con Drive activada para este apunte (clic para desactivar)";
+    } else {
+      btn.classList.remove("drive-active");
+      if (text) text.textContent = "Drive: Off";
+      btn.title = "Sincronización con Drive desactivada (clic para activar)";
+    }
+  }
+}
+
+function actualizarIconoNubecita(estado: CloudStatus) {
+  const btn = document.getElementById("btn-cloud-sync-status");
+  const icon = document.getElementById("icon-cloud-status");
+  if (!btn || !icon) return;
+
+  btn.classList.remove(
+    "cloud-status-offline",
+    "cloud-status-syncing",
+    "cloud-status-synced",
+    "cloud-status-unlinked",
+  );
+
+  switch (estado) {
+    case "offline":
+      btn.classList.add("cloud-status-offline");
+      btn.title = "Sin conexión a Internet";
+      // Nube cortada (CloudOff)
+      icon.innerHTML = `<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>`;
+      break;
+    case "syncing":
+      btn.classList.add("cloud-status-syncing");
+      btn.title = "Sincronizando con Google Drive…";
+      // Nube con flechas / pulso
+      icon.innerHTML = `<path d="M12 13v8l-4-4"/><path d="m12 21 4-4"/><path d="M4.393 15.269A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 3.5 7.369"/>`;
+      break;
+    case "synced":
+      btn.classList.add("cloud-status-synced");
+      btn.title = "Google Drive sincronizado";
+      // Nube con tilde (CloudCheck)
+      icon.innerHTML = `<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="m9 14 2 2 4-4"/>`;
+      break;
+    case "unlinked":
+    default:
+      btn.classList.add("cloud-status-unlinked");
+      btn.title = "Google Drive no conectado (clic para vincular)";
+      // Nube normal
+      icon.innerHTML = `<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>`;
+      break;
+  }
+}
+
+async function verificarEstadoGoogleDrive() {
+  if (!navigator.onLine) {
+    actualizarIconoNubecita("offline");
+    return;
+  }
+  try {
+    const estado = await invoke<{ conectado: boolean; email?: string | null }>(
+      "obtener_estado_google",
+    );
+    isGoogleDriveConnected = estado.conectado;
+    const statusText = document.getElementById("settings-drive-status");
+    const emailText = document.getElementById("settings-drive-email");
+    const btnConectar = document.getElementById("btn-conectar-drive");
+    const btnDesconectar = document.getElementById("btn-desconectar-drive");
+
+    if (estado.conectado) {
+      actualizarIconoNubecita("synced");
+      if (statusText) statusText.textContent = "Conectado";
+      if (emailText) {
+        emailText.textContent = estado.email ? `Cuenta: ${estado.email}` : "";
+        emailText.style.display = estado.email ? "block" : "none";
+      }
+      if (btnConectar) btnConectar.style.display = "none";
+      if (btnDesconectar) btnDesconectar.style.display = "block";
+    } else {
+      actualizarIconoNubecita("unlinked");
+      if (statusText) statusText.textContent = "No conectado";
+      if (emailText) emailText.style.display = "none";
+      if (btnConectar) btnConectar.style.display = "block";
+      if (btnDesconectar) btnDesconectar.style.display = "none";
+    }
+  } catch (err) {
+    console.error("Error al obtener estado de Google Drive:", err);
+    actualizarIconoNubecita("unlinked");
+  }
+}
+
+async function sincronizarApuntesAlInicio() {
+  if (!navigator.onLine) {
+    actualizarIconoNubecita("offline");
+    return;
+  }
+  await verificarEstadoGoogleDrive();
+  if (!isGoogleDriveConnected) {
+    return;
+  }
+
+  actualizarIconoNubecita("syncing");
+  try {
+    const actualizados = await invoke<string[]>("sincronizar_apuntes_registrados");
+    actualizarIconoNubecita("synced");
+    if (actualizados && actualizados.length > 0) {
+      showToast(
+        `Se sincronizaron ${actualizados.length} apunte(s) desde Drive: ${actualizados.join(", ")}`,
+        "success",
+      );
+      cargarUltimosModificados();
+      cargarMaterias();
+
+      // Si el apunte que el usuario tiene abierto se acaba de actualizar, recargar su contenido en TipTap
+      if (currentEditPath && editorInstancia) {
+        const apunteAbierto = actualizados.some((t) => currentEditPath.includes(t));
+        if (apunteAbierto) {
+          try {
+            const content = await invoke<string>("abrir_apunte", { path: currentEditPath });
+            const htmlContent = await marked.parse(content);
+            const parentDir = getParentDirFromPath(currentEditPath);
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlContent, "text/html");
+            const imgs = doc.querySelectorAll("img");
+            imgs.forEach((img) => {
+              const src = img.getAttribute("src");
+              if (src) {
+                const rel = recortarRutaRecursos(src);
+                if (rel.startsWith(".recursos/")) {
+                  const absolutePath = parentDir ? `${parentDir}/${rel}` : rel;
+                  img.setAttribute("src", convertFileSrc(absolutePath));
+                }
+              }
+            });
+            editorInstancia.commands.setContent(doc.body.innerHTML);
+            showToast("El apunte en edición se actualizó con los cambios de Google Drive", "success");
+          } catch (e) {
+            console.error("Error al recargar apunte abierto tras sincronización:", e);
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error("Error durante sincronización al inicio:", err);
+    actualizarIconoNubecita(isGoogleDriveConnected ? "synced" : "unlinked");
+  }
+}
+
+function setupCloudSync() {
+  window.addEventListener("online", () => {
+    verificarEstadoGoogleDrive().then(() => {
+      sincronizarApuntesAlInicio();
+    });
+  });
+
+  window.addEventListener("offline", () => {
+    actualizarIconoNubecita("offline");
+  });
+
+  const btnCloudStatus = document.getElementById("btn-cloud-sync-status");
+  btnCloudStatus?.addEventListener("click", () => {
+    if (!navigator.onLine) {
+      showToast("Sin conexión a Internet", "error");
+      return;
+    }
+    if (!isGoogleDriveConnected) {
+      abrirModal("modal-settings");
+    } else {
+      showToast("Verificando sincronización con Google Drive…", "success");
+      sincronizarApuntesAlInicio();
+    }
+  });
+
+  // Settings: Google Drive actions
+  const btnConectar = document.getElementById("btn-conectar-drive");
+  const btnDesconectar = document.getElementById("btn-desconectar-drive");
+
+  btnConectar?.addEventListener("click", async () => {
+    try {
+      showToast("Abriendo navegador para iniciar sesión con Google…", "success");
+      const resp = await invoke<{ conectado: boolean; email?: string | null }>(
+        "iniciar_sesion_google",
+        { clientId: null, clientSecret: null },
+      );
+      if (resp.conectado) {
+        showToast(`¡Conectado exitosamente con ${resp.email || "Google Drive"}!`, "success");
+        await verificarEstadoGoogleDrive();
+        await sincronizarApuntesAlInicio();
+      }
+    } catch (err: any) {
+      console.error("Error al conectar con Google Drive:", err);
+      showToast(`Error al conectar con Google Drive: ${err}`, "error");
+    }
+  });
+
+  btnDesconectar?.addEventListener("click", async () => {
+    try {
+      await invoke("desconectar_google");
+      showToast("Google Drive desconectado", "success");
+      await verificarEstadoGoogleDrive();
+    } catch (err: any) {
+      showToast(`Error al desconectar: ${err}`, "error");
+    }
+  });
+
+}
+
+function setupDriveImport() {
+  const modalDrive = document.getElementById("modal-importar-drive");
+  const btnClose = document.getElementById("close-modal-importar-drive");
+  const btnCancel = document.getElementById("btn-cancelar-import-drive");
+  const btnSelectRuta = document.getElementById("btn-drive-select-ruta");
+  const btnEjecutar = document.getElementById("btn-ejecutar-import-drive") as HTMLButtonElement | null;
+  const inputRuta = document.getElementById("drive-import-ruta") as HTMLInputElement | null;
+  const selectMateria = document.getElementById("drive-import-materia") as HTMLSelectElement | null;
+
+  const cerrarModalDrive = () => {
+    modalDrive?.classList.remove("active");
+    selectedDriveFileId = null;
+    selectedDriveFileName = null;
+    if (btnEjecutar) btnEjecutar.disabled = true;
+  };
+
+  btnClose?.addEventListener("click", cerrarModalDrive);
+  btnCancel?.addEventListener("click", cerrarModalDrive);
+  modalDrive?.addEventListener("click", (e) => {
+    if (e.target === modalDrive) cerrarModalDrive();
+  });
+
+  btnSelectRuta?.addEventListener("click", async () => {
+    const r = await seleccionarRuta(true);
+    if (r && inputRuta) {
+      inputRuta.value = r;
+      try {
+        localStorage.setItem("estudio_last_import_folder", r);
+      } catch (e) {}
+      validarFormularioImportDrive();
+    }
+  });
+
+  function validarFormularioImportDrive() {
+    if (btnEjecutar) {
+      const tieneArchivo = !!selectedDriveFileId;
+      const tieneRuta = !!inputRuta?.value.trim();
+      const tieneMateria = !!selectMateria?.value;
+      btnEjecutar.disabled = !(tieneArchivo && tieneRuta && tieneMateria);
+    }
+  }
+
+  inputRuta?.addEventListener("input", validarFormularioImportDrive);
+  selectMateria?.addEventListener("change", validarFormularioImportDrive);
+
+  // Global button in view-materias
+  const btnImportGlobal = document.getElementById("btn-import-drive");
+  btnImportGlobal?.addEventListener("click", () => {
+    abrirModalImportarDrive(null);
+  });
+
+  // Modal button in modal-ver-apuntes
+  const btnImportModal = document.getElementById("btn-modal-importar-drive");
+  btnImportModal?.addEventListener("click", () => {
+    abrirModalImportarDrive(currentMateriaForModal);
+  });
+
+  btnEjecutar?.addEventListener("click", async () => {
+    if (!selectedDriveFileId || !inputRuta?.value || !selectMateria?.value) {
+      showToast("Completa todos los campos para importar", "error");
+      return;
+    }
+
+    setButtonLoading(btnEjecutar, true, "Descargando…");
+    actualizarIconoNubecita("syncing");
+    try {
+      const apunte = await invoke<Apunte>("descargar_apunte_drive", {
+        fileId: selectedDriveFileId,
+        materiaCodigo: selectMateria.value,
+        rutaDestino: inputRuta.value.trim(),
+      });
+
+      const nombreFinal = selectedDriveFileName?.replace(/_export\.zip$/i, "").replace(/\.zip$/i, "") || apunte.tema;
+      showToast(`Apunte "${nombreFinal}" importado y sincronizado correctamente`, "success");
+      actualizarIconoNubecita("synced");
+      cerrarModalDrive();
+      cargarUltimosModificados();
+      if (currentMateriaForModal) {
+        await abrirModalVerApuntes(currentMateriaForModal);
+      }
+    } catch (err: any) {
+      console.error("Error descargando apunte de Drive:", err);
+      showToast(`Error al importar de Drive: ${err}`, "error");
+      actualizarIconoNubecita(isGoogleDriveConnected ? "synced" : "unlinked");
+    } finally {
+      setButtonLoading(btnEjecutar, false);
+    }
+  });
+}
+
+async function abrirModalImportarDrive(materiaPreseleccionada: Materia | null) {
+  if (!navigator.onLine) {
+    showToast("Se requiere conexión a Internet para importar desde Google Drive", "error");
+    return;
+  }
+  if (!isGoogleDriveConnected) {
+    showToast("Debes vincular tu cuenta de Google Drive primero en Configuración", "error");
+    abrirModal("modal-settings");
+    return;
+  }
+
+  abrirModal("modal-importar-drive");
+  const loadingEl = document.getElementById("drive-files-loading");
+  const emptyEl = document.getElementById("drive-files-empty");
+  const listEl = document.getElementById("drive-files-list");
+  const selectMateria = document.getElementById("drive-import-materia") as HTMLSelectElement | null;
+  const btnEjecutar = document.getElementById("btn-ejecutar-import-drive") as HTMLButtonElement | null;
+
+  const inputRuta = document.getElementById("drive-import-ruta") as HTMLInputElement | null;
+  const lastFolder = localStorage.getItem("estudio_last_import_folder");
+  if (inputRuta && lastFolder && !inputRuta.value.trim()) {
+    inputRuta.value = lastFolder;
+  }
+
+  if (loadingEl) loadingEl.style.display = "block";
+  if (emptyEl) emptyEl.style.display = "none";
+  if (listEl) listEl.innerHTML = "";
+  if (btnEjecutar) btnEjecutar.disabled = true;
+  selectedDriveFileId = null;
+  selectedDriveFileName = null;
+
+  // Población del selector de materias
+  if (selectMateria) {
+    selectMateria.innerHTML = "";
+    if (!materiasCache || materiasCache.length === 0) {
+      try {
+        materiasCache = await invoke<Materia[]>("mostrar_materias");
+      } catch (e) {}
+    }
+    if (materiasCache && materiasCache.length > 0) {
+      materiasCache.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.codigo.toString();
+        opt.textContent = `${m.nombre} (Año ${m.ano})`;
+        if (materiaPreseleccionada && m.codigo === materiaPreseleccionada.codigo) {
+          opt.selected = true;
+        }
+        selectMateria.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No hay materias creadas";
+      selectMateria.appendChild(opt);
+    }
+  }
+
+  // Carga de archivos desde Drive
+  try {
+    const files = await invoke<Array<{ id: string; name: string; modified_time: string; size?: number }>>(
+      "listar_apuntes_drive",
+    );
+    if (loadingEl) loadingEl.style.display = "none";
+
+    if (!files || files.length === 0) {
+      if (emptyEl) emptyEl.style.display = "block";
+      return;
+    }
+
+    if (listEl) {
+      files.forEach((f) => {
+        const item = document.createElement("div");
+        item.className = "drive-file-item";
+        item.dataset.id = f.id;
+
+        // Limpiar sufijo _export.zip para presentación
+        const nombreLimpio = f.name.replace(/_export\.zip$/i, "").replace(/\.zip$/i, "");
+        const fechaFormat = f.modified_time
+          ? new Date(f.modified_time).toLocaleDateString("es-ES", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "";
+
+        item.innerHTML = `
+          <div class="drive-file-item-info">
+            <div class="drive-file-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+              </svg>
+            </div>
+            <span class="drive-file-name" title="${nombreLimpio}">${nombreLimpio}</span>
+          </div>
+          <div class="drive-file-meta">
+            ${fechaFormat ? `<span class="drive-file-date">${fechaFormat}</span>` : ""}
+            <span class="drive-file-check" title="Seleccionado">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </span>
+          </div>
+        `;
+
+        item.addEventListener("click", () => {
+          document.querySelectorAll(".drive-file-item").forEach((el) => el.classList.remove("selected"));
+          item.classList.add("selected");
+          selectedDriveFileId = f.id;
+          selectedDriveFileName = f.name;
+
+          const inputRuta = document.getElementById("drive-import-ruta") as HTMLInputElement | null;
+          const tieneRuta = !!inputRuta?.value.trim();
+          const tieneMateria = !!selectMateria?.value;
+          if (btnEjecutar) {
+            btnEjecutar.disabled = !(tieneRuta && tieneMateria);
+          }
+        });
+
+        listEl.appendChild(item);
+      });
+    }
+  } catch (err: any) {
+    if (loadingEl) loadingEl.style.display = "none";
+    showToast(`Error al consultar Google Drive: ${err}`, "error");
   }
 }

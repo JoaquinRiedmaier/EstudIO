@@ -25,6 +25,22 @@ EstudIO unifica las herramientas esenciales del estudiante en una aplicación de
 - **Interfaz Responsiva e Inmersiva**: El diseño premium con efecto de vidrio esmerilado ofrece un ambiente estético agradable. Además, el editor cuenta con un modo de distracción reducida que permite colapsar/ocultar el menú lateral (sidebar) para maximizar el área de escritura tanto manualmente como de forma automática en pantallas medianas.
 
 ---
+# ¿Querés tomar apuntes más rápido? Aca una guía rápida
+
+1. '#' para títulos
+2. '##' para subtítulos
+3. '###' texto en negrita y subrayado
+4. '-' para hacer una lista de items
+5. Colocando '1. + Espacio' comenzas una lista numerada
+6. CTRL+B para letras negritas
+7. CTRL+U para subrayar
+8. CTRL+I para letras italicas/Cursiva
+9. CTRL+SHIFT+H para resaltar texto
+10. CTRL+E para formatear como código
+11. '---' para introducir una línea divisoria
+12. CTRL+SHIFT+B bloque de cita
+14. CTRL+S para guardar el apunte
+---
 
 ## 🛠️ Stack Tecnológico
 

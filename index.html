@@ -85,6 +85,22 @@
         <div id="topbar-tabs" class="topbar-tabs">
           <button class="topbar-tab active" data-tab-target="view-materias">Materias</button>
           <button class="topbar-tab" data-tab-target="view-recordatorios">Recordatorios</button>
+          <button class="topbar-tab" data-tab-target="view-horarios">Horarios</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <button id="btn-cloud-sync-status" class="btn-cloud-sync cloud-status-unlinked" title="Google Drive no conectado" aria-label="Estado de sincronización en la nube">
+            <svg id="icon-cloud-status" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+            </svg>
+          </button>
+          <button id="btn-settings" class="btn-settings" title="Configuración" aria-label="Configuración">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -132,10 +148,19 @@
 
         <!-- View: Ver Materias -->
         <section id="view-materias" class="view active fade-in">
-          <button id="btn-import-zip" class="btn-secondary" style="margin-bottom:1rem;"
-            title="Importar una nota desde un archivo ZIP">
-            Importar nota ZIP
-          </button>
+          <div style="display:flex; gap:0.75rem; margin-bottom:1rem; align-items:center;">
+            <button id="btn-import-zip" class="btn-secondary" style="flex:1; width:auto; margin:0;"
+              title="Importar una nota desde un archivo ZIP">
+              Importar nota ZIP
+            </button>
+            <button id="btn-import-drive" class="btn-secondary" style="flex:1; width:auto; margin:0;"
+              title="Importar un apunte desde Google Drive">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;">
+                <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+              </svg>
+              Importar desde Drive
+            </button>
+          </div>
           <div class="materias-grid" id="materias-list">
             <!-- Populated dynamically via TS -->
           </div>
@@ -201,7 +226,60 @@
           </div>
         </section>
 
-        <!-- View: Nuevo Apunte -->
+        <!-- View: Horarios -->
+        <section id="view-horarios" class="view fade-in">
+          <div class="horario-layout">
+            <!-- Vista semanal -->
+            <div class="card glass-panel list-column horario-lista-col">
+              <div class="horario-header">
+                <h3 style="margin-bottom:0;">Semana</h3>
+                <div class="horario-acciones">
+                  <button id="btn-nuevo-slot" class="btn-horario-accion btn-horario-nuevo" title="Nuevo bloque horario">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Nuevo bloque
+                  </button>
+                  <button id="btn-importar-horario" class="btn-horario-accion" title="Importar horario (.json)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    Importar
+                  </button>
+                  <button id="btn-exportar-horario" class="btn-horario-accion" title="Exportar horario (.json)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Exportar
+                  </button>
+                  <button id="btn-borrar-todos-slots" class="btn-horario-accion btn-horario-del" title="Borrar todo el horario">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                      <path d="M10 11v6"/><path d="M14 11v6"/>
+                    </svg>
+                    Borrar todo
+                  </button>
+                </div>
+              </div>
+              <div id="horario-grid" class="horario-semana-grid">
+                <!-- Populated by JS -->
+              </div>
+              <p id="horario-empty-msg" class="horario-empty-msg">No hay bloques en el horario aún. ¡Agregá el primero!
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section id="view-nuevo-apunte" class="view">
           <div class="card glass-panel">
             <h3>Registrar un Apunte</h3>
@@ -268,6 +346,14 @@
                   sin guardar</button>
                 <button id="btn-editor-guardar" class="btn-primary"
                   style="margin-top: 0; padding: 0.4rem 0.8rem; width: auto; font-size: 0.85rem; white-space: nowrap; display: flex; align-items: center;">Guardar</button>
+                <button id="btn-editor-toggle-drive" class="btn-secondary"
+                  style="margin-top: 0; padding: 0.4rem 0.8rem; width: auto; font-size: 0.85rem; white-space: nowrap; display: flex; align-items: center; gap: 0.35rem;"
+                  title="Sincronizar este apunte con Google Drive al guardar" aria-label="Sincronizar con Google Drive">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+                  </svg>
+                  <span id="text-editor-drive-sync">Drive: Off</span>
+                </button>
                 <button id="btn-editor-guardar-cerrar" class="btn-primary"
                   style="margin-top: 0; padding: 0.4rem 0.8rem; width: auto; font-size: 0.85rem; white-space: nowrap; display: flex; align-items: center;">Guardar
                   y Cerrar</button>
@@ -434,23 +520,49 @@
                 style="width: 1px; height: 1.5rem; background: var(--panel-border); margin: 0 0.25rem;"></div>
 
               <div class="toolbar-group table-group" style="display: flex; align-items: center; gap: 0.25rem;">
-                <button type="button" class="toolbar-btn" data-command="insertTable" title="Insertar Tabla">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
-                </button>
-                <div class="dropdown table-actions" style="position: relative; display: inline-block;">
-                  <button type="button" class="toolbar-btn" id="btn-table-menu" title="Opciones de Tabla" style="padding: 0 4px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                <!-- Insert Table with grid picker -->
+                <div class="table-insert-wrapper" style="position: relative; display: inline-block;">
+                  <button type="button" class="toolbar-btn" id="btn-insert-table" title="Insertar Tabla">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 3v18" />
+                      <rect width="18" height="18" x="3" y="3" rx="2" />
+                      <path d="M3 9h18" />
+                      <path d="M3 15h18" />
+                    </svg>
                   </button>
-                  <div id="table-dropdown-content" class="dropdown-content" style="min-width: 160px; right: 0; left: auto; transform: none; top: 100%; margin-top: 5px;">
-                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="addColumnBefore">Columna Antes</button>
-                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="addColumnAfter">Columna Después</button>
-                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="deleteColumn">Eliminar Columna</button>
+                  <!-- Grid picker popover -->
+                  <div id="table-grid-picker" class="table-grid-picker">
+                    <div class="table-grid-label" id="table-grid-label">1 × 1</div>
+                    <div class="table-grid-cells" id="table-grid-cells"></div>
+                  </div>
+                </div>
+                <div class="dropdown table-actions" style="position: relative; display: inline-block;">
+                  <button type="button" class="toolbar-btn" id="btn-table-menu" title="Opciones de Tabla"
+                    style="padding: 0 4px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </button>
+                  <div id="table-dropdown-content" class="dropdown-content"
+                    style="min-width: 160px; right: 0; left: auto; transform: none; top: 100%; margin-top: 5px;">
+                    <button type="button" class="dropdown-item toolbar-btn text-btn"
+                      data-command="addColumnBefore">Columna Antes</button>
+                    <button type="button" class="dropdown-item toolbar-btn text-btn"
+                      data-command="addColumnAfter">Columna Después</button>
+                    <button type="button" class="dropdown-item toolbar-btn text-btn"
+                      data-command="deleteColumn">Eliminar Columna</button>
                     <hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 4px 0;">
-                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="addRowBefore">Fila Arriba</button>
-                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="addRowAfter">Fila Abajo</button>
-                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="deleteRow">Eliminar Fila</button>
+                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="addRowBefore">Fila
+                      Arriba</button>
+                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="addRowAfter">Fila
+                      Abajo</button>
+                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="deleteRow">Eliminar
+                      Fila</button>
                     <hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 4px 0;">
-                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="deleteTable" style="color: var(--error);">Eliminar Tabla</button>
+                    <button type="button" class="dropdown-item toolbar-btn text-btn" data-command="deleteTable"
+                      style="color: var(--error);">Eliminar Tabla</button>
                   </div>
                 </div>
               </div>
@@ -565,6 +677,14 @@
             title="Importar una nota desde un archivo ZIP" aria-label="Importar nota ZIP">
             Importar nota ZIP
           </button>
+          <button id="btn-modal-importar-drive" class="btn-secondary"
+            style="width: auto; padding: 0.35rem 0.7rem; font-size: 0.85rem;"
+            title="Importar un apunte desde Google Drive" aria-label="Importar desde Drive">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+            </svg>
+            Importar de Drive
+          </button>
         </div>
         <button id="close-modal-ver-apuntes" class="icon-btn" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -596,10 +716,344 @@
         Si borras la materia, <strong>se borrarán todos los apuntes</strong> propios de la materia también. Esta acción
         no se puede deshacer.
       </p>
-      <div style="display: flex; gap: 1rem; justify-content: center;">
-        <button id="btn-cancel-delete-materia" class="btn-secondary" style="flex: 1;">Cancelar</button>
-        <button id="btn-confirm-delete-materia" class="btn-primary"
-          style="flex: 1; background-color: var(--error); border-color: var(--error);">Sí, Borrar</button>
+      <div class="modal-footer" style="margin-top: 1.5rem; padding-top: 0; border-top: none; justify-content: center; gap: 0.75rem;">
+        <button id="btn-cancel-delete-materia" class="btn-secondary" style="flex: 1; height: 40px;">Cancelar</button>
+        <button id="btn-confirm-delete-materia" class="btn-danger" style="flex: 1; height: 40px;">Sí, Borrar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Welcome Modal (primera vez) -->
+  <div id="modal-bienvenida" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width:520px; padding: 2.5rem;">
+      <div style="text-align:center; margin-bottom:1.5rem;">
+        <h2 style="font-family:var(--font-serif); font-size:2rem; color:var(--accent); margin-bottom:0.3rem;">Bienvenido
+          a EstudIO</h2>
+        <p style="color:var(--text-secondary); font-style:italic; font-family:var(--font-serif);">Tu escritorio
+          digitalizado</p>
+      </div>
+      <p style="margin-bottom:1.2rem; font-size:0.95rem; color:var(--text-secondary);">Acá van algunos atajos rápidos
+        para tomar apuntes:</p>
+      <div class="shortcuts-grid">
+        <div class="shortcut-item"><kbd>#</kbd><span>Título H1</span></div>
+        <div class="shortcut-item"><kbd>##</kbd><span>Título H2</span></div>
+        <div class="shortcut-item"><kbd>###</kbd><span>Negrita + subrayado</span></div>
+        <div class="shortcut-item"><kbd>-+Espacio</kbd><span>Lista de ítems</span></div>
+        <div class="shortcut-item"><kbd>1.+Espacio</kbd><span>Lista numerada</span></div>
+        <div class="shortcut-item"><kbd>---</kbd><span>Línea divisoria</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+B</kbd><span>Negrita</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+U</kbd><span>Subrayar</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+I</kbd><span>Cursiva</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+E</kbd><span>Código inline</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+⇧+H</kbd><span>Resaltar texto</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+⇧+B</kbd><span>Bloque de cita</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+S</kbd><span>Guardar apunte</span></div>
+      </div>
+      <button id="btn-cerrar-bienvenida" class="btn-primary" style="margin-top:1.8rem;">
+        Empezar a estudiar
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14" />
+          <path d="m12 5 7 7-7 7" />
+        </svg>
+      </button>
+      <p style="font-size:0.73rem; color:var(--text-secondary); margin-top:1rem; text-align:center; line-height:1.5;">
+        Al usar EstudIO aceptás nuestros
+        <a href="https://joaquinriedmaier.github.io/EstudIO/terminos" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:underline;">Términos de Servicio</a>
+        y
+        <a href="https://joaquinriedmaier.github.io/EstudIO/privacidad" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:underline;">Política de Privacidad</a>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="modal-settings" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width:460px; padding:2.5rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.8rem;">
+        <h2 style="font-family:var(--font-serif); font-size:1.5rem; color:var(--text-primary); margin:0;">Configuración
+        </h2>
+        <button id="btn-cerrar-settings" class="icon-btn" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Versión -->
+      <div class="settings-row">
+        <div class="settings-label">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4" />
+            <path d="M12 8h.01" />
+          </svg>
+          Versión de la aplicación
+        </div>
+        <span class="settings-value">v1.2.3</span>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <!-- Google Drive Integration -->
+      <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:0.8rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+          <div class="settings-label">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+            </svg>
+            Google Drive
+          </div>
+          <span id="settings-drive-status" class="settings-value" style="font-size:0.82rem;">No conectado</span>
+        </div>
+        <p id="settings-drive-email" style="font-size:0.8rem; color:var(--text-secondary); margin:0; display:none;"></p>
+        <div style="display:flex; gap:0.5rem; width:100%;">
+          <button id="btn-conectar-drive" class="btn-primary" style="flex:1; padding:0.4rem 0.8rem; font-size:0.85rem;">Conectar con Drive</button>
+          <button id="btn-desconectar-drive" class="btn-secondary" style="flex:1; padding:0.4rem 0.8rem; font-size:0.85rem; display:none;">Desconectar</button>
+        </div>
+
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <!-- Atajos de Notas -->
+      <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:0.8rem;">
+        <div class="settings-label">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+            <path d="M10 12h4" />
+            <path d="M10 16h4" />
+            <path d="M10 8h1" />
+          </svg>
+          Comandos del editor de notas
+        </div>
+        <button id="btn-ver-atajos" class="btn-secondary" style="width:100%;">
+          Ver atajos rápidos
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <!-- Enlace a la web de la aplicación -->
+      <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:0.8rem;">
+        <div class="settings-label">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+          Sitio web de la aplicación
+        </div>
+        <button id="btn-sitio-web" class="btn-secondary" style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.85rem;">joaquinriedmaier.github.io/EstudIO</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        </button>
+        <div style="display:flex; justify-content:center; gap:0.8rem; width:100%; font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">
+          <a href="https://joaquinriedmaier.github.io/EstudIO/terminos" target="_blank" rel="noopener" style="color:var(--text-secondary); text-decoration:underline;">Términos de Servicio</a>
+          <span>•</span>
+          <a href="https://joaquinriedmaier.github.io/EstudIO/privacidad" target="_blank" rel="noopener" style="color:var(--text-secondary); text-decoration:underline;">Política de Privacidad</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shortcuts Modal (desde Configuracion) -->
+  <div id="modal-atajos" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width:520px; padding:2.5rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+        <h2 style="font-family:var(--font-serif); font-size:1.4rem; color:var(--text-primary); margin:0;">Atajos del
+          Editor</h2>
+        <button id="btn-cerrar-atajos" class="icon-btn" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="shortcuts-grid">
+        <div class="shortcut-item"><kbd>#</kbd><span>Título H1</span></div>
+        <div class="shortcut-item"><kbd>##</kbd><span>Título H2</span></div>
+        <div class="shortcut-item"><kbd>###</kbd><span>Negrita + subrayado</span></div>
+        <div class="shortcut-item"><kbd>-+Espacio</kbd><span>Lista de ítems</span></div>
+        <div class="shortcut-item"><kbd>1.+Espacio</kbd><span>Lista numerada</span></div>
+        <div class="shortcut-item"><kbd>---</kbd><span>Línea divisoria</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+B</kbd><span>Negrita</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+U</kbd><span>Subrayar</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+I</kbd><span>Cursiva</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+E</kbd><span>Código inline</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+⇧+H</kbd><span>Resaltar texto</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+⇧+B</kbd><span>Bloque de cita</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+S</kbd><span>Guardar apunte</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nuevo Bloque Horario -->
+  <div id="modal-slot" class="modal-overlay">
+    <div class="modal-content glass-panel card" style="max-width: 480px; padding: 2rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem;">
+        <h3 style="margin:0;">Nuevo bloque horario</h3>
+        <button id="close-modal-slot" class="icon-btn" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="form-slot" class="modern-form">
+        <div class="form-group">
+          <label for="slot-titulo">Materia / Bloque</label>
+          <input type="text" id="slot-titulo" list="datalist-materias-horario" required
+            placeholder="Ej. Álgebra Lineal, Estudio libre..." />
+          <datalist id="datalist-materias-horario"></datalist>
+        </div>
+
+        <div class="form-group">
+          <label for="slot-dia">Día de la semana</label>
+          <select id="slot-dia" required>
+            <option value="1">Lunes</option>
+            <option value="2">Martes</option>
+            <option value="3">Miércoles</option>
+            <option value="4">Jueves</option>
+            <option value="5">Viernes</option>
+            <option value="6">Sábado</option>
+            <option value="0">Domingo</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="slot-inicio">Inicio</label>
+            <input type="time" id="slot-inicio" required />
+          </div>
+          <div class="form-group">
+            <label for="slot-fin">Fin</label>
+            <input type="time" id="slot-fin" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="slot-aula">Aula / Lugar (opcional)</label>
+          <input type="text" id="slot-aula" placeholder="Ej. Aula 3, Virtual, Biblioteca..." />
+        </div>
+
+        <div class="form-group">
+          <label>Color del bloque</label>
+          <div class="slot-color-palette" id="slot-color-palette">
+            <button type="button" class="slot-color-swatch active" data-color="#2c4c3b"
+              style="background:#2c4c3b;" title="Verde biblioteca"></button>
+            <button type="button" class="slot-color-swatch" data-color="#5b7fa6" style="background:#5b7fa6;"
+              title="Azul pizarrón"></button>
+            <button type="button" class="slot-color-swatch" data-color="#8b5e3c" style="background:#8b5e3c;"
+              title="Marrón libro"></button>
+            <button type="button" class="slot-color-swatch" data-color="#7a5c8a" style="background:#7a5c8a;"
+              title="Violeta"></button>
+            <button type="button" class="slot-color-swatch" data-color="#a85050" style="background:#a85050;"
+              title="Rojo examen"></button>
+            <input type="hidden" id="slot-color" value="#2c4c3b" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" id="btn-guardar-slot" style="margin-top: 1rem; width: 100%;">
+          Agregar bloque
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+          </svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Importar desde Google Drive -->
+  <div id="modal-importar-drive" class="modal-overlay">
+    <div class="modal-content glass-panel card" style="max-width: 520px; max-height: 85vh; display: flex; flex-direction: column; padding: 1.5rem 1.75rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.75rem; flex-shrink: 0;">
+        <h3 style="margin:0; display:flex; align-items:center; gap:0.6rem; font-size:1.15rem; font-weight:600; color:var(--text-primary);">
+          <div style="display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:rgba(44,76,59,0.1); color:var(--accent); flex-shrink:0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+            </svg>
+          </div>
+          <span>Importar desde Google Drive</span>
+        </h3>
+        <button id="close-modal-importar-drive" class="icon-btn" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:0.9rem; line-height:1.4;">
+        Selecciona el apunte de Google Drive que deseas descargar e importar localmente:
+      </p>
+
+      <div id="drive-files-loading" style="text-align:center; padding:1.5rem; color:var(--text-secondary); font-size:0.85rem; display:none; background:rgba(0,0,0,0.02); border-radius:8px; border:1px dashed var(--panel-border);">
+        <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:0.4rem; color:var(--accent);"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <div>Cargando apuntes desde Google Drive…</div>
+      </div>
+
+      <div id="drive-files-empty" style="text-align:center; padding:1.5rem; color:var(--text-secondary); font-size:0.85rem; display:none; background:rgba(0,0,0,0.02); border-radius:8px; border:1px dashed var(--panel-border);">
+        No se encontraron archivos de apuntes (.zip) en Google Drive.
+      </div>
+
+      <div id="drive-files-list" class="drive-files-container" style="overflow-y:auto; max-height:180px; margin-bottom:1.1rem; border:1px solid var(--panel-border); border-radius:8px; padding:0.4rem; background:#fcfbf9;">
+        <!-- Populated via TS -->
+      </div>
+
+      <!-- Destino: Materia y Carpeta -->
+      <div class="modern-form" style="display:flex; flex-direction:column; gap:0.8rem;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="drive-import-materia" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; color:var(--text-secondary);">Materia destino</label>
+          <select id="drive-import-materia" class="form-control" style="width:100%; padding:0.5rem 0.75rem; border-radius:6px; background:#ffffff; color:var(--text-primary); border:1px solid var(--panel-border); font-size:0.88rem; outline:none; height:38px; box-sizing:border-box;">
+            <!-- Populated via TS -->
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="drive-import-ruta" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; color:var(--text-secondary);">Carpeta local donde guardar</label>
+          <div class="file-input-group">
+            <input type="text" id="drive-import-ruta" class="form-control" placeholder="/ruta/donde/guardar..." style="font-size:0.88rem; padding:0.5rem 0.75rem; border:1px solid var(--panel-border); border-radius:6px; background:#ffffff; color:var(--text-primary); outline:none; height:38px; box-sizing:border-box;" />
+            <button type="button" id="btn-drive-select-ruta" class="btn-secondary btn-compact" style="height:38px; margin:0; display:inline-flex; align-items:center; gap:0.4rem;" title="Seleccionar carpeta local">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3A2 2 0 0 0 6.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+              </svg>
+              <span>Elegir carpeta</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; align-items:center; gap:0.75rem; margin-top:0.75rem; padding-top:1rem; border-top:1px solid var(--panel-border);">
+          <button type="button" id="btn-cancelar-import-drive" class="btn-secondary" style="margin:0; width:auto; padding:0 1.25rem; font-size:0.88rem; height:38px; display:inline-flex; align-items:center; justify-content:center;">Cancelar</button>
+          <button type="button" id="btn-ejecutar-import-drive" class="btn-primary" disabled style="margin:0; width:auto; padding:0 1.25rem; font-size:0.88rem; height:38px; display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Descargar e Importar</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

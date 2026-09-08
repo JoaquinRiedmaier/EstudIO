@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de Privacidad — EstudIO</title>
+  <meta name="description" content="Política de Privacidad de EstudIO. Una app de escritorio 100% local, sin servidores propios ni recolección de datos.">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .legal-container {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 3rem 2rem 5rem;
+    }
+    .legal-header {
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .legal-header .badge {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 20px;
+      margin-bottom: 1rem;
+    }
+    .legal-header h1 {
+      font-family: var(--font-serif);
+      font-size: 2.2rem;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+    .legal-header .meta {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .legal-section {
+      margin-bottom: 2.2rem;
+    }
+    .legal-section h2 {
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      color: var(--accent);
+      margin-bottom: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .legal-section p,
+    .legal-section li {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+      margin-bottom: 0.5rem;
+    }
+    .legal-section ul {
+      padding-left: 1.4rem;
+    }
+    .highlight-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 500;
+      margin-bottom: 2rem;
+      transition: opacity 0.2s;
+    }
+    .back-link:hover { opacity: 0.75; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="container nav-wrapper">
+      <a href="index.html" class="brand">
+        <img src="assets/icon.png" alt="EstudIO Logo" class="brand-logo">
+        <span class="brand-title">EstudIO</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <div class="legal-container">
+      <a href="index.html" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+        Volver al inicio
+      </a>
+
+      <div class="legal-header">
+        <div class="badge">Legal</div>
+        <h1>Política de Privacidad</h1>
+        <p class="meta">Última actualización: septiembre de 2026 · Versión 1.0</p>
+      </div>
+
+      <div class="highlight-box">
+        <strong>Resumen en una línea:</strong> EstudIO es una aplicación 100% local. No existe ningún servidor propio de EstudIO porque EstudIO es un proyecto de código abierto mantenido por una sola persona. Todos tus datos viven exclusivamente en tu propio dispositivo.
+      </div>
+
+      <div class="legal-section">
+        <h2>📦 ¿Qué datos almacena EstudIO?</h2>
+        <p>EstudIO guarda la siguiente información <strong>únicamente en tu dispositivo</strong>, en el directorio de datos de aplicaciones de tu sistema operativo:</p>
+        <ul>
+          <li>Una base de datos SQLite (<code>mi_DB.db3</code>) con tus materias, apuntes (metadatos), eventos y horarios.</li>
+          <li>Los archivos de tus apuntes en formato Markdown (<code>.md</code>) en la carpeta que vos elegís.</li>
+          <li>Las imágenes de tus apuntes en una subcarpeta <code>.recursos/</code> junto a cada apunte.</li>
+          <li>Si configurás Google Drive: un archivo de tokens de acceso (<code>google_drive_tokens.json</code>) y tu preferencia de Client ID, también en el dispositivo.</li>
+        </ul>
+        <p>Ninguno de estos datos sale de tu computadora hacia servidores de EstudIO, porque esos servidores no existen.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>☁️ Integración con Google Drive (opcional)</h2>
+        <p>La sincronización con Google Drive es completamente <strong>opcional</strong> y requiere que vos la actives manualmente. Si la usás:</p>
+        <ul>
+          <li>EstudIO solicita permiso de Google mediante OAuth 2.0 utilizando el scope <strong><code>drive.file</code></strong>: esto significa que la app solo puede ver, crear y modificar los archivos que ella misma creó en tu Drive — no tiene acceso a ningún otro archivo tuyo.</li>
+          <li>Los archivos que se sincronizan son únicamente los archivos ZIP de los apuntes que vos marcaste para sincronizar.</li>
+          <li>El token de acceso de Google se almacena localmente en tu dispositivo. EstudIO no lo transmite a ningún servidor propio.</li>
+          <li>Podés desconectar tu cuenta de Google Drive en cualquier momento desde Configuración dentro de la app, lo que elimina los tokens guardados localmente.</li>
+        </ul>
+        <p>Para entender cómo Google maneja tus datos de cuenta, consultá la <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Política de Privacidad de Google</a>.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>📡 Telemetría, analytics y cookies</h2>
+        <p>EstudIO <strong>no recopila ningún tipo de telemetría</strong>, no usa servicios de analytics, no instala cookies de seguimiento y no hace tracking de uso de ningún tipo. La única conexión saliente de la app (aparte de Google Drive si está activado) es la verificación del actualizador automático, que consulta el endpoint público de GitHub Releases para ver si hay una nueva versión disponible.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>🔄 Actualizaciones automáticas</h2>
+        <p>EstudIO incluye un actualizador que consulta la URL pública de GitHub Releases para verificar si hay nuevas versiones. Esta consulta es anónima, no envía ningún dato personal y la hace únicamente el sistema operativo al abrir la app.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>👤 Menores de edad</h2>
+        <p>EstudIO no recopila datos personales de ningún usuario, por lo que no hay restricciones de edad relacionadas con la privacidad.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>📬 Contacto</h2>
+        <p>Si tenés alguna pregunta sobre esta política, podés abrir un issue en el <a href="https://github.com/JoaquinRiedmaier/EstudIO/issues" target="_blank" rel="noopener">repositorio de GitHub</a>.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <img src="assets/icon.png" alt="EstudIO Logo" style="width: 32px; height: 32px; border-radius: 6px;">
+          <span class="footer-title">EstudIO</span>
+        </div>
+        <ul class="footer-links">
+          <li><a href="index.html">Inicio</a></li>
+          <li><a href="privacidad.html">Privacidad</a></li>
+          <li><a href="terminos.html">Términos</a></li>
+          <li><a href="https://github.com/JoaquinRiedmaier/EstudIO" target="_blank" rel="noopener">GitHub</a></li>
+        </ul>
+      </div>
+      <div class="footer-bottom">
+        <p>© 2026 EstudIO. Proyecto de Código Abierto. Sin servidores propios, sin datos tuyos.</p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

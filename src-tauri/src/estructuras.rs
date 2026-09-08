@@ -17,6 +17,7 @@ pub struct Apunte {
     pub ult_modificacion: String,
     pub tema: String,
     pub ruta: String,
+    pub sincronizar_drive: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -27,4 +28,15 @@ pub struct Evento {
     pub fecha_recordar: String, // Cuanto antes? semana, dia mes?
     pub nombre: String,         //Obligatorio
     pub descripcion: String,    //Opcional
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SlotsHorario {
+    pub id_slot: u32,
+    pub titulo: String,
+    pub dia_semana: u8,
+    pub hora_inicio: u16,
+    pub hora_fin: u16,
+    pub color: String,
+    pub aula: Option<String>,
 }
