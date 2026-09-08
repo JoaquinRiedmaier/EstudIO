@@ -1,5 +1,6 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { readImage } from "@tauri-apps/plugin-clipboard-manager";
 import { seleccionarRuta } from "./file";
@@ -267,6 +268,11 @@ function setupSettings() {
     abrirModal("modal-atajos");
   });
 
+  // Desde settings → abrir sitio web oficial
+  document.getElementById("btn-sitio-web")?.addEventListener("click", () => {
+    openUrl("https://joaquinriedmaier.github.io/EstudIO/").catch(console.error);
+  });
+
   // Cerrar atajos
   document.getElementById("modal-atajos")?.addEventListener("click", (e) => {
     if ((e.target as HTMLElement).id === "modal-atajos") {
@@ -279,6 +285,15 @@ function setupSettings() {
     ?.addEventListener("click", () => {
       cerrarModal("modal-atajos");
     });
+
+  // Abrir enlaces externos en el navegador predeterminado del sistema
+  document.addEventListener("click", (e) => {
+    const link = (e.target as HTMLElement).closest("a");
+    if (link && link.href && (link.href.startsWith("http://") || link.href.startsWith("https://"))) {
+      e.preventDefault();
+      openUrl(link.href).catch(console.error);
+    }
+  });
 }
 
 function setupBienvenida() {
