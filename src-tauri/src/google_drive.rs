@@ -27,14 +27,63 @@ fn url_encode(input: &str) -> String {
 
 const DEFAULT_DRIVE_FOLDER_QUERY: &str = "name contains '_export.zip' and trashed = false";
 
-/// Credenciales por defecto de EstudIO (se leen en tiempo de compilación desde variables de entorno).
-/// En producción se inyectan como GitHub Actions secrets: ESTUDIO_GOOGLE_CLIENT_ID y ESTUDIO_GOOGLE_CLIENT_SECRET.
-/// Para compilar localmente: export ESTUDIO_GOOGLE_CLIENT_ID=... && export ESTUDIO_GOOGLE_CLIENT_SECRET=...
-pub fn default_client_id() -> &'static str {
-    option_env!("ESTUDIO_GOOGLE_CLIENT_ID").unwrap_or("")
+fn leer_variable_env(clave: &str) -> Option<String> {
+    // 1. Variable de entorno del sistema
+    if let Ok(val) = std::env::var(clave) {
+        if !val.trim().is_empty() {
+            return Some(val.trim().to_string());
+        }
+    }
+    // 2. Archivos .env (en runtime)
+    for ruta in &[".env", "../.env"] {
+        if let Ok(contenido) = fs::read_to_string(ruta) {
+            for linea in contenido.lines() {
+                let linea = linea.trim();
+                if linea.is_empty() || linea.starts_with('#') {
+                    continue;
+                }
+                if let Some((k, v)) = linea.split_once('=') {
+                    if k.trim() == clave {
+                        let mut v = v.trim();
+                        if (v.starts_with('"') && v.ends_with('"'))
+                            || (v.starts_with('\'') && v.ends_with('\''))
+                        {
+                            if v.len() >= 2 {
+                                v = &v[1..v.len() - 1];
+                            }
+                        }
+                        if !v.trim().is_empty() {
+                            return Some(v.trim().to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
 }
-pub fn default_client_secret() -> &'static str {
-    option_env!("ESTUDIO_GOOGLE_CLIENT_SECRET").unwrap_or("")
+
+/// Credenciales por defecto de EstudIO.
+/// Se resuelven en el siguiente orden:
+/// 1. En tiempo de compilación (inyectadas por build.rs desde .env o en CI desde GitHub Secrets)
+/// 2. Variables de entorno del sistema
+/// 3. Archivo .env local
+pub fn default_client_id() -> String {
+    if let Some(val) = option_env!("ESTUDIO_GOOGLE_CLIENT_ID") {
+        if !val.is_empty() {
+            return val.to_string();
+        }
+    }
+    leer_variable_env("ESTUDIO_GOOGLE_CLIENT_ID").unwrap_or_default()
+}
+
+pub fn default_client_secret() -> String {
+    if let Some(val) = option_env!("ESTUDIO_GOOGLE_CLIENT_SECRET") {
+        if !val.is_empty() {
+            return val.to_string();
+        }
+    }
+    leer_variable_env("ESTUDIO_GOOGLE_CLIENT_SECRET").unwrap_or_default()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -88,28 +137,31 @@ fn get_config_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 // Carga la configuración guardada (Client ID y Client Secret).
-// Si no hay configuración personalizada, se usan las credenciales por defecto de la app.
+// Prioriza las credenciales oficiales de EstudIO (.env / CI secrets).
 pub fn cargar_config(app: &AppHandle) -> GoogleDriveConfig {
+    let def_id = default_client_id();
+    let def_secret = default_client_secret();
+
+    if !def_id.is_empty() {
+        return GoogleDriveConfig {
+            client_id: def_id,
+            client_secret: def_secret,
+        };
+    }
+
     if let Ok(path) = get_config_path(app) {
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(mut config) = serde_json::from_str::<GoogleDriveConfig>(&content) {
+                if let Ok(config) = serde_json::from_str::<GoogleDriveConfig>(&content) {
                     if !config.client_id.is_empty() {
-                        // Si el secret está vacío, usar el embebido en la app
-                        if config.client_secret.is_empty() {
-                            config.client_secret = default_client_secret().to_string();
-                        }
                         return config;
                     }
                 }
             }
         }
     }
-    // Fallback a credenciales por defecto de EstudIO
-    GoogleDriveConfig {
-        client_id: default_client_id().to_string(),
-        client_secret: default_client_secret().to_string(),
-    }
+
+    GoogleDriveConfig::default()
 }
 
 #[tauri::command]
@@ -857,3 +909,18 @@ pub async fn sincronizar_apuntes_registrados(
     );
     Ok(actualizados)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_leer_credenciales_env() {
+        let id = default_client_id();
+        let secret = default_client_secret();
+        assert!(!id.is_empty(), "El Client ID no debería estar vacío si .env existe");
+        assert!(!secret.is_empty(), "El Client Secret no debería estar vacío si .env existe");
+        assert!(id.contains("apps.googleusercontent.com"));
+    }
+}
+
