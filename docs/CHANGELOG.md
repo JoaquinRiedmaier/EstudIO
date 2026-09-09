@@ -1,3 +1,7 @@
+# Version 1.2.4 (2026-09-08)
+- **FIX:** Actualizada la validación al crear materias para admitir carreras de 1 a 6 años.
+- **FIX:** Simplificación de etiquetas de fecha y hora en el formulario de recordatorios.
+
 # Version 1.2.3 (2026-09-03)
 - **Nueva Funcionalidad:** Horarios. Ahora podes crear y gestionar horarios de clases con la opción de compartirlos fácilmente. Podes especificar la materia, el día, la hora de inicio y fin, y el aula correspondiente. Los horarios se visualizan en una cuadrícula intuitiva y se pueden exportar/importar para compartirlos con compañeros.
 - **Nueva Funcionalidad:** Sincronización con Google Drive. Podes activar la sincronización de tus apuntes con Google Drive para tener respaldo automático y acceder a tus notas desde cualquier computadora. Al sincronizar, se crea un archivo ZIP que puedes importar en otra instancia de EstudIO. Si pierdes todos tus datos, simplemente autentícate con tu cuenta de Gmail y recupera todo desde Google Drive.

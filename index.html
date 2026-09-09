@@ -148,7 +148,7 @@
               <div class="form-row">
                 <div class="form-group">
                   <label for="mat-ano">Año de cursada</label>
-                  <input type="number" id="mat-ano" min="1" required placeholder="Ej. 1" />
+                  <input type="number" id="mat-ano" min="1" max="6" required placeholder="Ej. 1" />
                 </div>
                 <div class="form-group">
                   <label for="mat-cuatrimestre">Cuatrimestre</label>
@@ -210,11 +210,11 @@
 
                 <div class="form-row">
                   <div class="form-group">
-                    <label for="evt-fecha">Fecha (DD/MM/YYYY)</label>
+                    <label for="evt-fecha">Fecha</label>
                     <input type="text" id="evt-fecha" required placeholder="Ej. 23/06/2026" />
                   </div>
                   <div class="form-group">
-                    <label for="evt-hora">Hora (HH:MM)</label>
+                    <label for="evt-hora">Hora</label>
                     <input type="text" id="evt-hora" placeholder="Ej. 18:30 (Opcional)" />
                   </div>
                 </div>
@@ -824,7 +824,7 @@
           Versión de la aplicación
         </div>
         <div style="display:flex; align-items:center; gap:0.6rem;">
-          <span id="settings-app-version" class="settings-value">v1.2.3</span>
+          <span id="settings-app-version" class="settings-value">v1.2.4</span>
           <button id="btn-settings-check-update" class="btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem; border-radius:5px;" title="Buscar actualizaciones">Buscar</button>
         </div>
       </div>
