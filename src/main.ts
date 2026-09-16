@@ -216,6 +216,7 @@ const CustomPasteExtension = Extension.create({
 
 // DOM Elements
 document.addEventListener("DOMContentLoaded", () => {
+  setupSplashScreen(1200);
   setupNavigation();
   setupForms();
   setupCalendar();
@@ -232,6 +233,36 @@ document.addEventListener("DOMContentLoaded", () => {
   cargarRecordatoriosHoy();
   sincronizarApuntesAlInicio();
 });
+
+// ─── Splash Screen ─────────────────────────────────────────────────────────
+
+function setupSplashScreen(minDurationMs: number = 1200) {
+  const splash = document.getElementById("app-splash");
+  if (!splash) return;
+
+  const startTime = performance.now();
+
+  const dismissSplash = () => {
+    const elapsed = performance.now() - startTime;
+    const remaining = Math.max(0, minDurationMs - elapsed);
+
+    setTimeout(() => {
+      document.querySelector(".app-container")?.classList.remove("app-preload");
+      splash.classList.add("splash-hidden");
+      splash.setAttribute("aria-hidden", "true");
+      setTimeout(() => {
+        splash.remove();
+      }, 400);
+    }, remaining);
+  };
+
+  if (document.readyState === "complete") {
+    dismissSplash();
+  } else {
+    window.addEventListener("load", dismissSplash, { once: true });
+    setTimeout(dismissSplash, minDurationMs);
+  }
+}
 
 // ─── Settings & Welcome ────────────────────────────────────────────────────
 

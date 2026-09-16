@@ -49,11 +49,15 @@
   background: rgba(44, 42, 41, 0.35);
 }
 
+html,
 body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
   font-family: var(--font-sans);
   background-color: var(--bg-color);
   color: var(--text-primary);
-  height: 100vh;
   overflow: hidden;
   /* Subtle paper texture using CSS radial gradients */
   background-image:
@@ -73,6 +77,15 @@ body {
 .app-container {
   display: flex;
   height: 100vh;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.app-container.app-preload {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Sidebar - Styled like a binder spine or leather portfolio */
@@ -87,8 +100,13 @@ body {
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03);
   z-index: 10;
   overflow-y: auto;
+  scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .logo h2 {
@@ -912,9 +930,16 @@ input:checked+.slider:before {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: 180px;
+  max-height: 200px;
   overflow-y: auto;
-  padding-right: 0.4rem;
+  padding-right: 0.3rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.recent-notes-list:hover {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(44, 42, 41, 0.2) transparent;
 }
 
 .recent-notes-list::-webkit-scrollbar {
@@ -926,8 +951,13 @@ input:checked+.slider:before {
 }
 
 .recent-notes-list::-webkit-scrollbar-thumb {
-  background-color: var(--panel-border);
+  background-color: transparent;
   border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.recent-notes-list:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(44, 42, 41, 0.2);
 }
 
 .recent-note-item {
@@ -2538,5 +2568,147 @@ input[type="time"]:focus {
   color: #61afef;
   border-color: rgba(97, 175, 239, 0.35);
 }
+
+/* ─── Splash Screen (1.2s Startup Animation) ───────────────────────────────── */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-color);
+  background-image:
+    radial-gradient(circle at 50% 40%, #ffffff 0%, transparent 60%),
+    radial-gradient(circle at 0% 100%, #e8e4d9 0%, transparent 60%);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.35s;
+  pointer-events: auto;
+}
+
+.app-splash.splash-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 3rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 12px 32px var(--shadow-color), 0 2px 6px rgba(0, 0, 0, 0.04);
+  transform: translateY(0);
+  animation: splashContentIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.splash-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background-color: rgba(44, 76, 59, 0.08);
+  border: 1px solid rgba(44, 76, 59, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  color: var(--accent);
+  box-shadow: 0 4px 14px var(--accent-glow);
+  animation: splashIconReveal 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.splash-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.splash-title {
+  font-family: var(--font-serif);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+  margin-bottom: 0.5rem;
+  opacity: 0;
+  animation: splashFadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+}
+
+.splash-divider {
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  opacity: 0.6;
+  margin: 0.25rem 0 0.65rem 0;
+  animation: splashDividerExpand 0.5s ease-out 0.35s forwards;
+}
+
+.splash-subtitle {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  letter-spacing: 0.2px;
+  opacity: 0;
+  animation: splashFadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+}
+
+/* ─── Keyframes ─── */
+@keyframes splashContentIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes splashIconReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.7) rotate(-6deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes splashFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splashDividerExpand {
+  from {
+    width: 0;
+  }
+  to {
+    width: 44px;
+  }
+}
+
+/* ─── Accesibilidad ─── */
+@media (prefers-reduced-motion: reduce) {
+  .app-splash {
+    display: none !important;
+  }
+}
+
 
 

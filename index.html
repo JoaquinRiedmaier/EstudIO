@@ -13,7 +13,23 @@
 </head>
 
 <body>
-  <div class="app-container">
+  <!-- Splash Screen de Inicio (1.2s) -->
+  <div id="app-splash" class="app-splash" aria-hidden="false">
+    <div class="splash-content">
+      <div class="splash-icon-wrapper">
+        <svg class="splash-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+          <path d="M6 6h10" />
+          <path d="M6 10h7" />
+        </svg>
+      </div>
+      <h1 class="splash-title">EstudIO</h1>
+      <div class="splash-divider"></div>
+      <p class="splash-subtitle">Tu escritorio digitalizado</p>
+    </div>
+  </div>
+
+  <div class="app-container app-preload">
     <aside class="sidebar glass-panel">
       <div class="logo">
         <h2>EstudIO</h2>
