@@ -97,6 +97,16 @@ interface Apunte {
   sincronizar_drive?: boolean;
 }
 
+interface GrabacionApunte {
+  codigo_grabacion: number;
+  codigo_apunte: number;
+  fecha_grabacion: string;
+  duracion_segundos: number;
+  ruta_audio: string;
+  estado_transcripcion: 'pendiente' | 'transcribiendo' | 'transcrito' | 'error';
+  error_mensaje?: string | null;
+}
+
 interface Evento {
   codigo_evento: number;
   fecha: string;
@@ -278,6 +288,7 @@ function setupSettings() {
   // Abrir settings
   document.getElementById("btn-settings")?.addEventListener("click", () => {
     abrirModal("modal-settings");
+    cargarConfigGroq();
   });
 
   // Cerrar settings al hacer clic fuera del contenido
@@ -292,6 +303,87 @@ function setupSettings() {
     ?.addEventListener("click", () => {
       cerrarModal("modal-settings");
     });
+
+  // Toggle visibilidad de clave
+  document.getElementById("btn-groq-toggle-password")?.addEventListener("click", () => {
+    const input = document.getElementById("groq-api-key") as HTMLInputElement;
+    if (!input) return;
+    const btn = document.getElementById("btn-groq-toggle-password");
+    if (input.type === "password") {
+      input.type = "text";
+      if (btn) btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+    } else {
+      input.type = "password";
+      if (btn) btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    }
+  });
+
+  // Toggle secciones colapsables
+  document.getElementById("btn-toggle-drive")?.addEventListener("click", () => {
+    const body = document.getElementById("body-drive");
+    const header = document.getElementById("btn-toggle-drive");
+    if (body && header) {
+      body.classList.toggle("collapsed");
+      header.classList.toggle("collapsed");
+    }
+  });
+
+  document.getElementById("btn-toggle-groq")?.addEventListener("click", () => {
+    const body = document.getElementById("body-groq");
+    const header = document.getElementById("btn-toggle-groq");
+    if (body && header) {
+      body.classList.toggle("collapsed");
+      header.classList.toggle("collapsed");
+    }
+  });
+
+  // Probar y guardar clave Groq
+  document.getElementById("btn-groq-test-save")?.addEventListener("click", async () => {
+    const btn = document.getElementById("btn-groq-test-save") as HTMLButtonElement;
+    const statusEl = document.getElementById("settings-groq-status");
+    const apiKey = (document.getElementById("groq-api-key") as HTMLInputElement)?.value.trim();
+    const modelo = (document.getElementById("groq-model") as HTMLSelectElement)?.value || "whisper-large-v3-turbo";
+
+    if (!apiKey) {
+      showToast("Ingresá tu API Key de Groq", "error");
+      return;
+    }
+
+    setButtonLoading(btn, true, "Probando…");
+    if (statusEl) statusEl.innerHTML = '<span class="groq-spinner"></span> Validando…';
+
+    try {
+      const esValida = await invoke<boolean>("validar_groq_api_key", { apiKey });
+      if (esValida) {
+        await invoke("guardar_groq_config", {
+          config: { api_key: apiKey, modelo },
+        });
+        if (statusEl) {
+          statusEl.textContent = "Conectado";
+          statusEl.className = "settings-value";
+        }
+        const maskedKey = apiKey.slice(0, 4) + "••••••••" + apiKey.slice(-4);
+        if (document.getElementById("groq-api-key")) {
+          (document.getElementById("groq-api-key") as HTMLInputElement).value = maskedKey;
+        }
+        showToast("Configuración de Groq guardada con éxito", "success");
+      } else {
+        if (statusEl) {
+          statusEl.textContent = "Clave inválida";
+          statusEl.className = "settings-value";
+        }
+        showToast("API Key inválida o sin conexión", "error");
+      }
+    } catch (err: any) {
+      if (statusEl) {
+        statusEl.textContent = "Error";
+        statusEl.className = "settings-value";
+      }
+      showToast(`Error: ${err?.toString?.() ?? "Sin conexión"}`, "error");
+    } finally {
+      setButtonLoading(btn, false);
+    }
+  });
 
   // Desde settings → abrir atajos
   document.getElementById("btn-ver-atajos")?.addEventListener("click", () => {
@@ -325,6 +417,37 @@ function setupSettings() {
       openUrl(link.href).catch(console.error);
     }
   });
+}
+
+async function cargarConfigGroq() {
+  try {
+    const config = await invoke<{ api_key: string; modelo: string } | null>("obtener_groq_config");
+    const statusEl = document.getElementById("settings-groq-status");
+    if (config) {
+      if (statusEl) {
+        statusEl.textContent = "Conectado";
+        statusEl.className = "settings-value";
+      }
+      const maskedKey = config.api_key.slice(0, 4) + "••••••••" + config.api_key.slice(-4);
+      const input = document.getElementById("groq-api-key") as HTMLInputElement;
+      if (input) input.value = maskedKey;
+      const select = document.getElementById("groq-model") as HTMLSelectElement;
+      if (select) select.value = config.modelo || "whisper-large-v3-turbo";
+    } else {
+      if (statusEl) {
+        statusEl.textContent = "No configurado";
+        statusEl.className = "settings-value";
+      }
+      const input = document.getElementById("groq-api-key") as HTMLInputElement;
+      if (input) input.value = "";
+    }
+  } catch {
+    const statusEl = document.getElementById("settings-groq-status");
+    if (statusEl) {
+      statusEl.textContent = "No configurado";
+      statusEl.className = "settings-value";
+    }
+  }
 }
 
 function setupBienvenida() {
@@ -1811,7 +1934,18 @@ function updateToolbarActiveStates() {
 }
 
 function cerrarEditor() {
+  // Detener grabación si está activa
+  if (grabacionActiva) {
+    detenerGrabacion(true).catch(() => {});
+  }
+  // Limpiar lista de grabaciones y banner de pendientes
+  const listaGrab = document.getElementById('editor-audio-recordings-list');
+  if (listaGrab) listaGrab.innerHTML = '';
+  const bannerPend = document.getElementById('banner-audios-pendientes');
+  if (bannerPend) bannerPend.style.display = 'none';
+
   currentEditPath = "";
+
   currentEditCodigo = null;
   currentEditSincronizarDrive = false;
   actualizarToggleDriveUI(false);
@@ -2863,6 +2997,10 @@ async function abrirEditor(apunte: Apunte) {
     });
 
     cargarRecordatoriosHoy();
+    // Cargar grabaciones existentes del apunte
+    cargarGrabacionesApunte(apunte.codigo_apunte).catch((e) =>
+      console.warn('[audio] Error cargando grabaciones:', e)
+    );
   } catch (error: any) {
     console.error("Error al abrir apunte:", error);
     showToast(`Error al abrir apunte: ${error}`, "error");
@@ -3306,3 +3444,650 @@ async function abrirModalImportarDrive(materiaPreseleccionada: Materia | null) {
     showToast(`Error al consultar Google Drive: ${err}`, "error");
   }
 }
+
+// ─── Audio Recorder Module ────────────────────────────────────────────────
+
+let mediaRecorderInstance: MediaRecorder | null = null;
+let audioChunks: Blob[] = [];
+let grabacionStream: MediaStream | null = null;
+let timerInterval: ReturnType<typeof setInterval> | null = null;
+let timerSegundos = 0;
+let grabacionActiva = false;
+
+// Fallback WebAudio PCM recorder (para entornos Linux / WebKitGTK donde MediaRecorder produce 0 bytes)
+let audioContextInstance: AudioContext | null = null;
+let audioScriptProcessor: ScriptProcessorNode | null = null;
+let audioSourceNode: MediaStreamAudioSourceNode | null = null;
+let pcmBuffers: Float32Array[] = [];
+let sampleRateGrabacion = 44100;
+
+function formatTiempoGrabacion(seg: number): string {
+  const m = Math.floor(seg / 60).toString().padStart(2, '0');
+  const s = (seg % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+/**
+ * Codifica buffers de Float32 PCM a un archivo WAV (16-bit mono) en un Blob.
+ */
+function encodeAudioWav(buffers: Float32Array[], sampleRate: number): Blob {
+  let totalSamples = 0;
+  for (let i = 0; i < buffers.length; i++) {
+    totalSamples += buffers[i].length;
+  }
+
+  const dataByteLength = totalSamples * 2; // 16-bit PCM = 2 bytes por muestra
+  const buffer = new ArrayBuffer(44 + dataByteLength);
+  const view = new DataView(buffer);
+
+  function writeString(offset: number, str: string) {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  }
+
+  /* Cabecera RIFF */
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataByteLength, true);
+  writeString(8, 'WAVE');
+
+  /* Sub-chunk fmt */
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);             // Subchunk1Size (16 para PCM)
+  view.setUint16(20, 1, true);              // AudioFormat (1 para PCM)
+  view.setUint16(22, 1, true);              // NumChannels (1 mono)
+  view.setUint32(24, sampleRate, true);      // SampleRate
+  view.setUint32(28, sampleRate * 2, true);  // ByteRate (SampleRate * 1 * 2)
+  view.setUint16(32, 2, true);              // BlockAlign (1 * 2)
+  view.setUint16(34, 16, true);             // BitsPerSample (16 bits)
+
+  /* Sub-chunk data */
+  writeString(36, 'data');
+  view.setUint32(40, dataByteLength, true);
+
+  /* Escribir muestras PCM */
+  let offset = 44;
+  for (let i = 0; i < buffers.length; i++) {
+    const chunk = buffers[i];
+    for (let j = 0; j < chunk.length; j++) {
+      const s = Math.max(-1, Math.min(1, chunk[j]));
+      const intVal = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      view.setInt16(offset, intVal, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+async function iniciarGrabacion() {
+  if (grabacionActiva) return;
+  if (!currentEditCodigo || !currentEditPath) {
+    showToast('Abre un apunte antes de grabar.', 'error');
+    return;
+  }
+
+  // Diagnóstico: verificar disponibilidad de la API
+  console.log('[audio] navigator.mediaDevices:', navigator.mediaDevices);
+  console.log('[audio] isSecureContext:', window.isSecureContext);
+  console.log('[audio] protocol:', window.location.protocol);
+  console.log('[audio] MediaRecorder supported:', typeof MediaRecorder !== 'undefined');
+  if (navigator.mediaDevices) {
+    console.log('[audio] enumerateDevices disponible:', typeof navigator.mediaDevices.enumerateDevices);
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(d => d.kind === 'audioinput');
+      console.log('[audio] Dispositivos de audio encontrados:', audioInputs.length, audioInputs.map(d => d.label || d.deviceId));
+    } catch (enumErr) {
+      console.warn('[audio] Error enumerando dispositivos:', enumErr);
+    }
+  } else {
+    console.error('[audio] navigator.mediaDevices NO DISPONIBLE — posiblemente contexto no seguro o API bloqueada por Tauri');
+  }
+
+  try {
+    grabacionStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    console.log('[audio] getUserMedia OK — stream obtenido:', grabacionStream.id);
+  } catch (micErr: any) {
+    console.error('[audio] getUserMedia FALLÓ:', micErr?.name, micErr?.message);
+    showToast(`Micrófono: ${micErr?.name ?? 'Error'} — ${micErr?.message ?? 'Sin detalle'}`, 'error');
+    return;
+  }
+
+  // Inicializar WebAudio backup recorder (captura PCM directo desde PipeWire/PulseAudio)
+  try {
+    audioContextInstance = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (audioContextInstance.state === 'suspended') {
+      await audioContextInstance.resume();
+    }
+    sampleRateGrabacion = audioContextInstance.sampleRate;
+    audioSourceNode = audioContextInstance.createMediaStreamSource(grabacionStream);
+    audioScriptProcessor = audioContextInstance.createScriptProcessor(4096, 1, 1);
+    pcmBuffers = [];
+    grabacionActiva = true;
+
+    audioScriptProcessor.onaudioprocess = (e) => {
+      if (!grabacionActiva) return;
+      const input = e.inputBuffer.getChannelData(0);
+      const copy = new Float32Array(input);
+      pcmBuffers.push(copy);
+      if (pcmBuffers.length === 1) {
+        console.log('[audio] WebAudio PCM capturando muestras! Primer chunk size:', copy.length);
+      }
+    };
+    const dummyGain = audioContextInstance.createGain();
+    dummyGain.gain.value = 0;
+    audioSourceNode.connect(audioScriptProcessor);
+    audioScriptProcessor.connect(dummyGain);
+    dummyGain.connect(audioContextInstance.destination);
+    console.log('[audio] WebAudio PCM recorder activo — state:', audioContextInstance.state, 'sampleRate:', sampleRateGrabacion);
+  } catch (waErr) {
+    console.warn('[audio] No se pudo inicializar WebAudio backup recorder:', waErr);
+  }
+
+  // Detectar mimeType soportado para MediaRecorder
+  const candidatos = [
+    'audio/ogg; codecs=opus',
+    'audio/ogg; codecs=vorbis',
+    'audio/ogg',
+    'audio/webm; codecs=opus',
+    'audio/webm',
+    'audio/mp4',
+    '',
+  ];
+
+  const soportados = candidatos.filter(t => t === '' || MediaRecorder.isTypeSupported(t));
+  console.log('[audio] mimeTypes soportados por MediaRecorder:', soportados);
+  const mimeType = soportados[0] ?? '';
+  console.log('[audio] mimeType seleccionado:', mimeType || '(default del navegador)');
+
+  // Diagnóstico del stream y track de audio
+  const audioTracks = grabacionStream.getAudioTracks();
+  console.log('[audio] audioTracks en el stream:', audioTracks.length);
+  audioTracks.forEach((track, i) => {
+    console.log(`[audio] Track ${i}: enabled=${track.enabled}, muted=${track.muted}, readyState=${track.readyState}, label="${track.label}"`);
+  });
+
+  try {
+    mediaRecorderInstance = mimeType
+      ? new MediaRecorder(grabacionStream, { mimeType })
+      : new MediaRecorder(grabacionStream);
+
+    console.log('[audio] MediaRecorder creado — state:', mediaRecorderInstance.state, '| mimeType real:', mediaRecorderInstance.mimeType);
+
+    audioChunks = [];
+    timerSegundos = 0;
+    grabacionActiva = true;
+
+    mediaRecorderInstance.ondataavailable = (e) => {
+      console.log('[audio] ondataavailable durante grabación — size:', e.data.size, '| type:', e.data.type);
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorderInstance.onerror = (ev: any) => {
+      console.error('[audio] MediaRecorder ERROR:', ev?.error?.name, ev?.error?.message, ev);
+    };
+
+    mediaRecorderInstance.start();
+    console.log('[audio] MediaRecorder.start() OK — state:', mediaRecorderInstance.state);
+  } catch (mrErr: any) {
+    console.warn('[audio] MediaRecorder.start() falló (se usará WebAudio PCM recorder):', mrErr?.message);
+    mediaRecorderInstance = null;
+    timerSegundos = 0;
+    grabacionActiva = true;
+  }
+
+  // UI: mostrar banner, activar botón
+  const banner = document.getElementById('editor-grabacion-banner');
+  if (banner) banner.style.display = 'flex';
+  const btnGrabar = document.getElementById('btn-editor-grabar-audio');
+  if (btnGrabar) btnGrabar.classList.add('grabando');
+  const textBtn = document.getElementById('text-btn-grabar');
+  if (textBtn) textBtn.textContent = 'Grabando...';
+
+  // Cronómetro
+  const cronEl = document.getElementById('grabacion-cronometro');
+  timerInterval = setInterval(() => {
+    timerSegundos++;
+    const limite = 3600;
+    if (cronEl) {
+      cronEl.textContent = `${formatTiempoGrabacion(timerSegundos)} / ${formatTiempoGrabacion(limite)}`;
+    }
+    // Límite de 1 hora
+    if (timerSegundos >= limite) {
+      showToast('Se alcanzó el límite máximo de 1 hora de grabación.', 'warning' as any);
+      detenerGrabacion(false).catch(console.error);
+    }
+  }, 1000);
+}
+
+async function detenerGrabacion(cancelar: boolean) {
+  if (!grabacionActiva) return;
+
+  grabacionActiva = false;
+
+  // Detener timer
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  const duracionTotal = timerSegundos;
+  timerSegundos = 0;
+
+  // Desconectar WebAudio recorder
+  if (audioScriptProcessor) {
+    audioScriptProcessor.disconnect();
+    audioScriptProcessor = null;
+  }
+  if (audioSourceNode) {
+    audioSourceNode.disconnect();
+    audioSourceNode = null;
+  }
+
+  // Detener MediaRecorder (si está activo)
+  if (mediaRecorderInstance && mediaRecorderInstance.state !== 'inactive') {
+    await new Promise<void>((resolve) => {
+      if (!mediaRecorderInstance) { resolve(); return; }
+
+      mediaRecorderInstance.ondataavailable = (e) => {
+        console.log('[audio] ondataavailable — chunk size:', e.data.size);
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorderInstance.onstop = () => {
+        console.log('[audio] onstop — total chunks:', audioChunks.length, 'total bytes:', audioChunks.reduce((a, b) => a + b.size, 0));
+        setTimeout(resolve, 30);
+      };
+
+      try {
+        if (mediaRecorderInstance.state === 'recording') {
+          mediaRecorderInstance.requestData();
+        }
+        mediaRecorderInstance.stop();
+      } catch (err) {
+        console.warn('[audio] Error al detener MediaRecorder:', err);
+        resolve();
+      }
+    });
+  }
+
+  // Cerrar AudioContext
+  if (audioContextInstance && audioContextInstance.state !== 'closed') {
+    audioContextInstance.close().catch(console.error);
+    audioContextInstance = null;
+  }
+
+  // Liberar micrófono
+  grabacionStream?.getTracks().forEach((t) => t.stop());
+  grabacionStream = null;
+
+  // Ocultar banner, restaurar botón
+  const banner = document.getElementById('editor-grabacion-banner');
+  if (banner) banner.style.display = 'none';
+  const btnGrabar = document.getElementById('btn-editor-grabar-audio');
+  if (btnGrabar) btnGrabar.classList.remove('grabando');
+  const textBtn = document.getElementById('text-btn-grabar');
+  if (textBtn) textBtn.textContent = 'Grabar';
+  const cronEl = document.getElementById('grabacion-cronometro');
+  if (cronEl) cronEl.textContent = '00:00 / 60:00';
+
+  if (cancelar) {
+    audioChunks = [];
+    pcmBuffers = [];
+    mediaRecorderInstance = null;
+    return;
+  }
+
+  // Evaluar fuente de audio obtenida (MediaRecorder vs WebAudio WAV fallback)
+  const mediaRecorderBytes = audioChunks.reduce((a, b) => a + b.size, 0);
+  console.log(`[audio] MediaRecorder bytes: ${mediaRecorderBytes} | PCM buffer chunks: ${pcmBuffers.length}`);
+
+  let blobFinal: Blob | null = null;
+  let actualMime = '';
+
+  if (mediaRecorderBytes > 0) {
+    actualMime = mediaRecorderInstance?.mimeType || 'audio/ogg';
+    blobFinal = new Blob(audioChunks, { type: actualMime });
+    console.log('[audio] Guardando con MediaRecorder Blob:', actualMime, mediaRecorderBytes, 'bytes');
+  } else if (pcmBuffers.length > 0) {
+    console.log('[audio] MediaRecorder entregó 0 bytes. Ejecutando fallback WebAudio WAV encoder...');
+    actualMime = 'audio/wav';
+    blobFinal = encodeAudioWav(pcmBuffers, sampleRateGrabacion);
+    console.log('[audio] WAV generado exitosamente — tamaño:', blobFinal.size, 'bytes');
+  }
+
+  if (!blobFinal || blobFinal.size === 0) {
+    showToast('No se capturaron datos de audio.', 'error');
+    audioChunks = [];
+    pcmBuffers = [];
+    mediaRecorderInstance = null;
+    return;
+  }
+
+  // Insertar tarjeta temporal de "Procesando" mientras el worker thread codifica el OGG
+  const lista = document.getElementById('editor-audio-recordings-list');
+  const placeholder = document.createElement('div');
+  placeholder.className = 'recording-card processing';
+  placeholder.innerHTML = `
+    <div class="recording-card-header" style="opacity: 0.85;">
+      <svg class="icon-spin" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+      </svg>
+      <span class="recording-card-fecha" style="font-size:0.8rem; font-weight:normal;">Guardando y optimizando audio en OGG...</span>
+      <span class="recording-badge transcribiendo">Procesando</span>
+    </div>
+  `;
+  if (lista) {
+    lista.insertBefore(placeholder, lista.firstChild);
+  }
+
+  try {
+    const arrayBuffer = await blobFinal.arrayBuffer();
+    const bytesAudio = Array.from(new Uint8Array(arrayBuffer));
+
+    const grabacion = await invoke<GrabacionApunte>('guardar_archivo_grabacion', {
+      codigoApunte: currentEditCodigo,
+      rutaApunte: currentEditPath,
+      bytesAudio,
+      duracionSegundos: duracionTotal,
+      mimeType: actualMime,
+    });
+
+    placeholder.remove();
+
+    // Insertar tarjeta real al inicio de la lista
+    if (lista) {
+      const tarjeta = crearTarjetaGrabacion(grabacion);
+      lista.insertBefore(tarjeta, lista.firstChild);
+    }
+
+    const pendientesRestantes = document.querySelectorAll('#editor-audio-recordings-list .recording-card:not(.processing)').length;
+    actualizarBannerPendientes(pendientesRestantes);
+
+    showToast('Grabación guardada correctamente.', 'success');
+  } catch (err: any) {
+    placeholder.remove();
+    console.error('[audio] Error guardando archivo en backend:', err);
+    showToast(`Error guardando grabación: ${err}`, 'error');
+  } finally {
+    audioChunks = [];
+    pcmBuffers = [];
+    mediaRecorderInstance = null;
+  }
+}
+
+function formatDuracion(seg: number): string {
+  if (seg < 60) return `${seg}s`;
+  const m = Math.floor(seg / 60);
+  const s = seg % 60;
+  return s > 0 ? `${m}:${s.toString().padStart(2,'0')} min` : `${m} min`;
+}
+
+function badgeHtml(estado: GrabacionApunte['estado_transcripcion']): string {
+  const map: Record<string, string> = {
+    pendiente:      'Pendiente',
+    transcribiendo: 'Transcribiendo',
+    transcrito:     'Transcrito',
+    error:          'Error',
+  };
+  return `<span class="recording-badge ${estado}">${map[estado] ?? estado}</span>`;
+}
+
+function actualizarBannerPendientes(cantidad: number) {
+  const banner = document.getElementById('banner-audios-pendientes');
+  const texto = document.getElementById('texto-audios-pendientes');
+  if (!banner || !texto) return;
+
+  if (cantidad > 0) {
+    texto.textContent = cantidad === 1
+      ? 'Hay 1 grabación pendiente de transcripción en este apunte.'
+      : `Hay ${cantidad} grabaciones pendientes de transcripción en este apunte.`;
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+async function anexarTextoTranscripcion(texto: string, fecha: string) {
+  if (!editorInstancia) {
+    console.error('[audio] editorInstancia es null, no se pudo anexar la transcripción');
+    return;
+  }
+
+  let fechaHeader = fecha;
+  const partes = fecha.match(/(\d{4})\/(\d{2})\/(\d{2}) (\d{2}:\d{2})/);
+  if (partes) fechaHeader = `${partes[3]}/${partes[2]}/${partes[1]} ${partes[4]}`;
+
+  const markdownTranscripcion = `\n\n---\n**Transcripción (${fechaHeader})**\n\n${texto.trim()}\n`;
+  const htmlTranscripcion = await marked.parse(markdownTranscripcion);
+
+  editorInstancia
+    .chain()
+    .focus('end')
+    .insertContent(htmlTranscripcion)
+    .run();
+}
+
+function crearTarjetaGrabacion(g: GrabacionApunte): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'recording-card';
+  card.dataset.codigoGrabacion = String(g.codigo_grabacion);
+
+  // Formatear fecha: "YYYY/MM/DD HH:mm:ss" → "DD/MM/YYYY HH:mm"
+  let fechaDisplay = g.fecha_grabacion;
+  const partes = g.fecha_grabacion.match(/(\d{4})\/(\d{2})\/(\d{2}) (\d{2}:\d{2})/);
+  if (partes) fechaDisplay = `${partes[3]}/${partes[2]}/${partes[1]} ${partes[4]}`;
+
+  const esTranscrito = g.estado_transcripcion === 'transcrito';
+  const botonTranscribirHtml = !esTranscrito
+    ? `<button class="recording-btn-transcribir" title="Transcribir con Groq Whisper" data-codigo="${g.codigo_grabacion}">Transcribir</button>`
+    : '';
+
+  card.innerHTML = `
+    <div class="recording-card-header">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+      </svg>
+      <span class="recording-card-fecha">${fechaDisplay}</span>
+      <span class="recording-card-duracion">${formatDuracion(g.duracion_segundos)}</span>
+      ${badgeHtml(g.estado_transcripcion)}
+      ${botonTranscribirHtml}
+      <button class="recording-btn-eliminar" title="Eliminar grabación" data-codigo="${g.codigo_grabacion}" aria-label="Eliminar grabación">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+      </button>
+    </div>
+    ${g.error_mensaje ? `<span class="recording-card-error" style="font-size:0.75rem; color:var(--error); margin-top:0.2rem;">${g.error_mensaje}</span>` : ''}
+  `;
+
+  // Evento transcribir con Groq Whisper
+  const btnTranscribir = card.querySelector<HTMLButtonElement>('.recording-btn-transcribir');
+  btnTranscribir?.addEventListener('click', async () => {
+    btnTranscribir.disabled = true;
+    btnTranscribir.textContent = 'Transcribiendo...';
+
+    const badgeEl = card.querySelector('.recording-badge');
+    if (badgeEl) {
+      badgeEl.className = 'recording-badge transcribiendo';
+      badgeEl.textContent = 'Transcribiendo';
+    }
+
+    try {
+      const resp = await invoke<{ codigo_grabacion: number; texto: string; fecha_grabacion: string }>(
+        'transcribir_grabacion_groq',
+        { codigoGrabacion: g.codigo_grabacion }
+      );
+
+      // Anexar texto al final del apunte en TipTap
+      await anexarTextoTranscripcion(resp.texto, resp.fecha_grabacion);
+
+      // Al transcribirse con éxito, el audio ya fue borrado en backend y desaparece del apunte
+      card.remove();
+      const pendientesRestantes = document.querySelectorAll('#editor-audio-recordings-list .recording-card:not(.processing)').length;
+      actualizarBannerPendientes(pendientesRestantes);
+
+      showToast('Audio transcrito y agregado al apunte.', 'success');
+    } catch (err: any) {
+      console.error('[audio] Error en transcripción Groq:', err);
+      g.estado_transcripcion = 'error';
+      if (badgeEl) {
+        badgeEl.className = 'recording-badge error';
+        badgeEl.textContent = 'Error';
+      }
+      btnTranscribir.disabled = false;
+      btnTranscribir.textContent = 'Reintentar';
+
+      let errEl = card.querySelector('.recording-card-error') as HTMLElement;
+      if (!errEl) {
+        errEl = document.createElement('span');
+        errEl.className = 'recording-card-error';
+        errEl.style.cssText = 'font-size:0.75rem; color:var(--error); margin-top:0.2rem;';
+        card.appendChild(errEl);
+      }
+      errEl.textContent = String(err);
+
+      showToast(`Error de transcripción: ${err}`, 'error');
+    }
+  });
+
+  // Evento eliminar
+  const btnEliminar = card.querySelector<HTMLButtonElement>('.recording-btn-eliminar');
+  btnEliminar?.addEventListener('click', async () => {
+    const confirma = await confirm(`¿Eliminar esta grabación? Esta acción no se puede deshacer.`);
+    if (!confirma) return;
+    try {
+      await invoke('eliminar_grabacion', { codigoGrabacion: g.codigo_grabacion });
+      card.remove();
+      const pendientesRestantes = document.querySelectorAll('#editor-audio-recordings-list .recording-card:not(.processing)').length;
+      actualizarBannerPendientes(pendientesRestantes);
+      showToast('Grabación eliminada.', 'success');
+    } catch (err: any) {
+      showToast(`Error eliminando grabación: ${err}`, 'error');
+    }
+  });
+
+  return card;
+}
+
+async function cargarGrabacionesApunte(codigoApunte: number) {
+  const lista = document.getElementById('editor-audio-recordings-list');
+  if (!lista) return;
+  lista.innerHTML = '';
+
+  try {
+    const grabaciones = await invoke<GrabacionApunte[]>('obtener_grabaciones_apunte', {
+      codigoApunte,
+    });
+    grabaciones.forEach((g) => {
+      lista.appendChild(crearTarjetaGrabacion(g));
+    });
+    actualizarBannerPendientes(grabaciones.length);
+  } catch (err) {
+    console.warn('[audio] Error cargando grabaciones:', err);
+    actualizarBannerPendientes(0);
+  }
+}
+
+// Botón "Transcribir pendientes" en el banner superior
+document.getElementById('btn-transcribir-todos-pendientes')?.addEventListener('click', async () => {
+  const btnBanner = document.getElementById('btn-transcribir-todos-pendientes') as HTMLButtonElement | null;
+  if (!currentEditCodigo) return;
+
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('#editor-audio-recordings-list .recording-card:not(.processing)'));
+  if (cards.length === 0) return;
+
+  if (btnBanner) {
+    btnBanner.disabled = true;
+    btnBanner.textContent = 'Transcribiendo pendientes...';
+  }
+
+  let procesados = 0;
+  for (const card of cards) {
+    const cod = Number(card.dataset.codigoGrabacion);
+    if (!cod) continue;
+
+    const btnTranscribir = card.querySelector<HTMLButtonElement>('.recording-btn-transcribir');
+    if (btnTranscribir) {
+      btnTranscribir.disabled = true;
+      btnTranscribir.textContent = 'Transcribiendo...';
+    }
+
+    const badgeEl = card.querySelector('.recording-badge');
+    if (badgeEl) {
+      badgeEl.className = 'recording-badge transcribiendo';
+      badgeEl.textContent = 'Transcribiendo';
+    }
+
+    try {
+      const resp = await invoke<{ codigo_grabacion: number; texto: string; fecha_grabacion: string }>(
+        'transcribir_grabacion_groq',
+        { codigoGrabacion: cod }
+      );
+      await anexarTextoTranscripcion(resp.texto, resp.fecha_grabacion);
+      card.remove();
+      procesados++;
+    } catch (err: any) {
+      console.error(`[audio] Error transcribiendo grabación #${cod}:`, err);
+      if (badgeEl) {
+        badgeEl.className = 'recording-badge error';
+        badgeEl.textContent = 'Error';
+      }
+      if (btnTranscribir) {
+        btnTranscribir.disabled = false;
+        btnTranscribir.textContent = 'Reintentar';
+      }
+      let errEl = card.querySelector('.recording-card-error') as HTMLElement;
+      if (!errEl) {
+        errEl = document.createElement('span');
+        errEl.className = 'recording-card-error';
+        errEl.style.cssText = 'font-size:0.75rem; color:var(--error); margin-top:0.2rem;';
+        card.appendChild(errEl);
+      }
+      errEl.textContent = String(err);
+    }
+  }
+
+  const pendientesRestantes = document.querySelectorAll('#editor-audio-recordings-list .recording-card:not(.processing)').length;
+  actualizarBannerPendientes(pendientesRestantes);
+
+  if (btnBanner) {
+    btnBanner.disabled = false;
+    btnBanner.textContent = 'Transcribir pendientes';
+  }
+
+  if (procesados > 0) {
+    showToast(
+      procesados === 1 ? 'Se transcribió 1 grabación pendiente.' : `Se transcribieron ${procesados} grabaciones pendientes.`,
+      'success'
+    );
+  }
+});
+
+// Event listeners para grabación
+document.getElementById('btn-editor-grabar-audio')?.addEventListener('click', () => {
+  if (grabacionActiva) {
+    detenerGrabacion(false).catch(console.error);
+  } else {
+    iniciarGrabacion().catch(console.error);
+  }
+});
+
+document.getElementById('btn-grabacion-detener')?.addEventListener('click', () => {
+  detenerGrabacion(false).catch(console.error);
+});
+
+document.getElementById('btn-grabacion-cancelar')?.addEventListener('click', () => {
+  detenerGrabacion(true).catch(console.error);
+});
+

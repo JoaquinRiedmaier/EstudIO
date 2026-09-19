@@ -323,6 +323,7 @@ body {
 }
 
 input[type="text"],
+input[type="password"],
 input[type="number"],
 input[type="date"],
 input[type="time"],
@@ -2710,5 +2711,308 @@ input[type="time"]:focus {
   }
 }
 
+/* ─── Settings Collapsible Sections ─── */
 
+.settings-section {
+  margin-bottom: 0.2rem;
+}
 
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.settings-section-header:hover {
+  background: rgba(44, 76, 59, 0.04);
+}
+
+.settings-section-header .settings-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-section-arrow {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
+  margin-left: auto;
+  transform: rotate(180deg);
+}
+
+.settings-section-header.collapsed .settings-section-arrow {
+  transform: rotate(0deg);
+}
+
+.settings-section-body {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+  max-height: 500px;
+  opacity: 1;
+  padding-bottom: 0.5rem;
+}
+
+.settings-section-body.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding-bottom: 0;
+}
+
+/* ─── Groq Config ─── */
+
+.groq-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(44, 76, 59, 0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.groq-key-group {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  align-items: stretch;
+}
+
+.groq-key-input {
+  flex: 1;
+  min-width: 0;
+  height: 38px !important;
+  padding: 0 0.75rem !important;
+  font-family: monospace;
+  font-size: 0.88rem !important;
+  letter-spacing: 0.5px;
+  box-sizing: border-box !important;
+  transition: none !important;
+  border-radius: 6px !important;
+  background: #fdfdfc;
+  border: 1px solid var(--panel-border) !important;
+  border-bottom: 2px solid var(--panel-border) !important;
+  color: var(--text-primary);
+}
+
+.groq-key-input:focus {
+  border-color: var(--accent) !important;
+  border-bottom-color: var(--accent) !important;
+  background: #ffffff;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-glow) !important;
+}
+
+.groq-toggle-btn {
+  width: 38px !important;
+  height: 38px !important;
+  flex-shrink: 0;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+}
+
+.groq-model-select {
+  width: 100%;
+  height: 38px !important;
+  padding: 0 0.6rem !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--panel-border) !important;
+  border-bottom: 2px solid var(--panel-border) !important;
+  background: var(--panel-bg);
+  color: var(--text-primary);
+  font-size: 0.85rem !important;
+  box-sizing: border-box !important;
+}
+
+.groq-help-link {
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: underline;
+  text-align: center;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+/* ─── Audio Recording ──────────────────────────────────────────────────────── */
+
+@keyframes grabacion-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.35; transform: scale(0.75); }
+}
+
+.grabacion-dot {
+  animation: grabacion-pulse 1.1s ease-in-out infinite;
+}
+
+#editor-grabacion-banner {
+  transition: opacity 0.2s ease;
+}
+
+/* Banner de grabaciones pendientes */
+.banner-audios-pendientes {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.85rem;
+  margin-bottom: 0.5rem;
+  background: rgba(245, 158, 11, 0.09);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-left: 3px solid #d97706;
+  border-radius: 6px;
+  animation: fadeIn 0.2s ease;
+}
+
+/* Tarjeta de grabación */
+.recording-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.45rem 0.75rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  transition: all 0.2s ease;
+}
+
+.recording-card.processing {
+  border-left-color: #2563eb;
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.icon-spin {
+  animation: spin-anim 1s linear infinite;
+}
+
+@keyframes spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.recording-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.recording-card-fecha {
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.recording-card-duracion {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+/* Badges de estado */
+.recording-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.recording-badge.pendiente {
+  background: rgba(202, 138, 4, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(202, 138, 4, 0.35);
+}
+
+.recording-badge.transcribiendo {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+}
+
+.recording-badge.transcrito {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(22, 163, 74, 0.35);
+}
+
+.recording-badge.error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+}
+
+.recording-btn-eliminar {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.recording-btn-eliminar:hover {
+  color: var(--error);
+  background: rgba(168, 66, 63, 0.1);
+}
+
+.recording-btn-transcribir {
+  padding: 0.18rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.recording-btn-transcribir:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.recording-btn-transcribir:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Botón Grabar activo (mientras graba) */
+#btn-editor-grabar-audio.grabando {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #ef4444;
+}
+
+#editor-audio-recordings-list:not(:empty) {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+  margin-bottom: 0.25rem;
+}

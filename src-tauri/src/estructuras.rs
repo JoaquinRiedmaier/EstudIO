@@ -40,3 +40,21 @@ pub struct SlotsHorario {
     pub color: String,
     pub aula: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GrabacionApunte {
+    pub codigo_grabacion: u32,
+    pub codigo_apunte: u32,
+    pub fecha_grabacion: String, // Formato "YYYY/MM/DD HH:mm:ss"
+    pub duracion_segundos: u32,
+    pub ruta_audio: String,
+    pub estado_transcripcion: String, // "pendiente" | "transcribiendo" | "transcrito" | "error"
+    pub error_mensaje: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TranscripcionResultado {
+    pub codigo_grabacion: u32,
+    pub texto: String,
+    pub fecha_grabacion: String,
+}

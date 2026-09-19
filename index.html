@@ -400,6 +400,16 @@
                   </svg>
                   <span id="text-editor-drive-sync">Drive: Off</span>
                 </button>
+                <button id="btn-editor-grabar-audio" class="btn-secondary"
+                  style="margin-top: 0; padding: 0.4rem 0.8rem; width: auto; font-size: 0.85rem; white-space: nowrap; display: flex; align-items: center; gap: 0.35rem;"
+                  title="Grabar audio para este apunte" aria-label="Grabar audio">
+                  <svg class="icon-mic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="22"/>
+                  </svg>
+                  <span id="text-btn-grabar">Grabar</span>
+                </button>
                 <button id="btn-editor-guardar-cerrar" class="btn-primary"
                   style="margin-top: 0; padding: 0.4rem 0.8rem; width: auto; font-size: 0.85rem; white-space: nowrap; display: flex; align-items: center;">Guardar
                   y Cerrar</button>
@@ -445,6 +455,33 @@
                   </div>
                 </div>
               </div>
+            </div>
+            <!-- Banner de Grabación Activa -->
+            <div id="editor-grabacion-banner" style="display: none; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; background: rgba(220,38,38,0.12); border: 1px solid rgba(220,38,38,0.35); border-radius: 6px; font-size: 0.85rem;">
+              <span class="grabacion-dot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; flex-shrink: 0;"></span>
+              <span style="color: #ef4444; font-weight: 600;">Grabando...</span>
+              <span id="grabacion-cronometro" style="font-family: var(--font-mono, monospace); color: var(--text-secondary); min-width: 110px;">00:00 / 60:00</span>
+              <span style="margin-left: auto; display: flex; gap: 0.4rem;">
+                <button id="btn-grabacion-detener" class="btn-primary" style="margin-top:0; padding: 0.3rem 0.7rem; font-size: 0.8rem; width: auto; display: flex; align-items: center; gap: 0.3rem;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                  Detener y Guardar
+                </button>
+                <button id="btn-grabacion-cancelar" class="btn-secondary" style="margin-top:0; padding: 0.3rem 0.7rem; font-size: 0.8rem; width: auto;">Cancelar</button>
+              </span>
+            </div>
+            <!-- Banner de Audios Pendientes de Transcripción -->
+            <div id="banner-audios-pendientes" class="banner-audios-pendientes" style="display: none;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #b45309; flex-shrink: 0;">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span id="texto-audios-pendientes" style="font-size: 0.83rem; color: #92400e; font-weight: 500;">Hay grabaciones pendientes de transcripción.</span>
+              </div>
+              <button id="btn-transcribir-todos-pendientes" class="btn-primary" style="margin-top:0; padding: 0.3rem 0.75rem; font-size: 0.8rem; width: auto; white-space: nowrap;">
+                Transcribir pendientes
+              </button>
             </div>
             <!-- Editor Toolbar -->
             <div id="editor-toolbar" class="editor-toolbar"
@@ -630,6 +667,8 @@
                 </svg>
               </button>
             </div>
+            <!-- Lista de Grabaciones del Apunte -->
+            <div id="editor-audio-recordings-list" style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0; margin: 0;"></div>
             <!-- Tiptap Editor Container -->
             <div id="tiptap-editor"
               style="flex: 1; min-height: 150px; border: 1px solid var(--panel-border); border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; display: flex; flex-direction: column; overflow: hidden; background: #ffffff;">
@@ -829,20 +868,27 @@
       </div>
 
       <!-- Versión -->
-      <div class="settings-row" style="align-items:center;">
-        <div class="settings-label">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 16v-4" />
-            <path d="M12 8h.01" />
+      <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:0.8rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+          <div class="settings-label">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4" />
+              <path d="M12 8h.01" />
+            </svg>
+            Versión de la aplicación
+          </div>
+          <span id="settings-app-version" class="settings-value" style="font-size:0.82rem;">v1.2.4</span>
+        </div>
+        <button id="btn-settings-check-update" class="btn-secondary" style="width:100%;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          Versión de la aplicación
-        </div>
-        <div style="display:flex; align-items:center; gap:0.6rem;">
-          <span id="settings-app-version" class="settings-value">v1.2.4</span>
-          <button id="btn-settings-check-update" class="btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem; border-radius:5px;" title="Buscar actualizaciones">Buscar</button>
-        </div>
+          Buscar actualizaciones
+        </button>
       </div>
 
       <!-- Banner de actualización disponible dentro de Configuración -->
@@ -861,8 +907,8 @@
       <div class="settings-divider"></div>
 
       <!-- Google Drive Integration -->
-      <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:0.8rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+      <div class="settings-section" id="settings-drive-section">
+        <div class="settings-section-header collapsed" id="btn-toggle-drive">
           <div class="settings-label">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
@@ -870,16 +916,60 @@
             Google Drive
           </div>
           <span id="settings-drive-status" class="settings-value" style="font-size:0.82rem;">No conectado</span>
+          <svg class="settings-section-arrow" id="arrow-drive" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
         </div>
-        <p id="settings-drive-email" style="font-size:0.8rem; color:var(--text-secondary); margin:0; display:none;"></p>
-        <div style="display:flex; gap:0.5rem; width:100%;">
-          <button id="btn-conectar-drive" class="btn-primary" style="flex:1; padding:0.4rem 0.8rem; font-size:0.85rem;">Conectar con Drive</button>
-          <button id="btn-desconectar-drive" class="btn-secondary" style="flex:1; padding:0.4rem 0.8rem; font-size:0.85rem; display:none;">Desconectar</button>
+        <div class="settings-section-body collapsed" id="body-drive">
+          <p id="settings-drive-email" style="font-size:0.8rem; color:var(--text-secondary); margin:0 0 0.5rem 0; display:none;"></p>
+          <div style="display:flex; gap:0.5rem; width:100%;">
+            <button id="btn-conectar-drive" class="btn-primary" style="flex:1; padding:0.4rem 0.8rem; font-size:0.85rem;">Conectar con Drive</button>
+            <button id="btn-desconectar-drive" class="btn-secondary" style="flex:1; padding:0.4rem 0.8rem; font-size:0.85rem; display:none;">Desconectar</button>
+          </div>
         </div>
-
       </div>
 
-      <div class="settings-divider"></div>
+      <!-- Groq Transcription Config -->
+      <div class="settings-section" id="settings-groq-section">
+        <div class="settings-section-header collapsed" id="btn-toggle-groq">
+          <div class="settings-label">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            Transcripción de Audio (Groq)
+          </div>
+          <span id="settings-groq-status" class="settings-value" style="font-size:0.82rem;">No configurado</span>
+          <svg class="settings-section-arrow" id="arrow-groq" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="settings-section-body collapsed" id="body-groq">
+          <div style="display:flex; flex-direction:column; gap:0.5rem; width:100%;">
+            <div class="groq-key-group">
+              <input type="password" id="groq-api-key" class="groq-key-input" placeholder="gsk_••••••••••••" />
+              <button id="btn-groq-toggle-password" class="btn-secondary groq-toggle-btn" title="Mostrar/ocultar clave">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+            <select id="groq-model" class="groq-model-select">
+              <option value="whisper-large-v3-turbo">whisper-large-v3-turbo (Recomendado)</option>
+              <option value="whisper-large-v3">whisper-large-v3</option>
+            </select>
+            <button id="btn-groq-test-save" class="btn-primary" style="width:100%; padding:0.5rem; font-size:0.85rem;">
+              Probar y Guardar Clave
+            </button>
+            <a id="groq-help-link" href="https://console.groq.com/keys" target="_blank" rel="noopener" class="groq-help-link">
+              ¿Cómo obtener una API Key gratuita?
+            </a>
+          </div>
+        </div>
+      </div>
 
       <!-- Atajos de Notas -->
       <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:0.8rem;">
