@@ -1216,16 +1216,23 @@ pub fn run() {
             // Habilitar permisos de micrófono en Linux (WebKitGTK no tiene diálogo de permisos nativo)
             #[cfg(target_os = "linux")]
             {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.with_webview(|webview| {
-                        use webkit2gtk::{PermissionRequestExt, WebViewExt as WVExt};
+                for (label, window) in app.webview_windows() {
+                    let _ = window.with_webview(move |webview| {
+                        use webkit2gtk::{PermissionRequestExt, SettingsExt, WebViewExt as WVExt};
                         use webkit2gtk::glib::ObjectExt;
                         let gtk_webview = webview.inner();
-                        gtk_webview.connect_permission_request(|_view, request| {
+
+                        if let Some(settings) = WVExt::settings(&gtk_webview) {
+                            settings.set_enable_webrtc(true);
+                            settings.set_enable_media_stream(true);
+                            settings.set_enable_mock_capture_devices(false);
+                        }
+
+                        gtk_webview.connect_permission_request(move |_view, request| {
                             // Auto-aprobar permisos de media (micrófono)
                             if request.is::<webkit2gtk::UserMediaPermissionRequest>() {
                                 request.allow();
-                                eprintln!("[audio] Permiso UserMedia aprobado (Linux/WebKitGTK)");
+                                eprintln!("[audio] Permiso UserMedia aprobado (Linux/WebKitGTK) para {}", label);
                                 return true;
                             }
                             false
