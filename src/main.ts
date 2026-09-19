@@ -3546,14 +3546,20 @@ async function iniciarGrabacion() {
   }
 
   try {
-    grabacionStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
+    try {
+      grabacionStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    } catch {
+      // Fallback para WebKitGTK / Linux que no soporta constraints avanzadas de audio
+      console.log('[audio] Constraints avanzadas no soportadas, reintentando con audio: true...');
+      grabacionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
     console.log('[audio] getUserMedia OK — stream obtenido:', grabacionStream.id);
   } catch (micErr: any) {
     console.error('[audio] getUserMedia FALLÓ:', micErr?.name, micErr?.message);
