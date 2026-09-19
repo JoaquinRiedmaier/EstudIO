@@ -35,6 +35,7 @@ zip = "2.1.1"
 zip-extensions = "0.14.1"
 reqwest = { version = "0.12", features = ["json", "multipart"] }
 vorbis_rs = "0.5.6"
+keyring = "4.2.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = { version = "2.0", features = ["v2_20"] }
