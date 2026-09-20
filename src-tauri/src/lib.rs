@@ -1,4 +1,5 @@
 mod estructuras;
+mod audio_capture;
 mod audio_config;
 pub mod audio_encoder;
 pub mod google_drive;
@@ -1204,6 +1205,7 @@ pub fn run() {
         .setup(|app| {
             let db = inicio(app);
             app.manage(DbState { db: Mutex::new(db) });
+            app.manage(CapturaState::default());
 
             // Chequeo de actualizaciones en hilo async (no bloqueante)
             let handle = app.handle().clone();
@@ -1213,33 +1215,10 @@ pub fn run() {
                 }
             });
 
-            // Habilitar permisos de micrófono en Linux (WebKitGTK no tiene diálogo de permisos nativo)
-            #[cfg(target_os = "linux")]
-            {
-                for (label, window) in app.webview_windows() {
-                    let _ = window.with_webview(move |webview| {
-                        use webkit2gtk::{PermissionRequestExt, SettingsExt, WebViewExt as WVExt};
-                        use webkit2gtk::glib::ObjectExt;
-                        let gtk_webview = webview.inner();
-
-                        if let Some(settings) = WVExt::settings(&gtk_webview) {
-                            settings.set_enable_webrtc(true);
-                            settings.set_enable_media_stream(true);
-                            settings.set_enable_mock_capture_devices(false);
-                        }
-
-                        gtk_webview.connect_permission_request(move |_view, request| {
-                            // Auto-aprobar permisos de media (micrófono)
-                            if request.is::<webkit2gtk::UserMediaPermissionRequest>() {
-                                request.allow();
-                                eprintln!("[audio] Permiso UserMedia aprobado (Linux/WebKitGTK) para {}", label);
-                                return true;
-                            }
-                            false
-                        });
-                    });
-                }
-            }
+            // Sin bloque de permisos de media para WebKitGTK: la captura ya no pasa por el
+            // webview, así que no hay `getUserMedia` que autorizar. Esto también elimina el
+            // diálogo del portal pidiendo acceso a la cámara, que aparecía porque habilitar
+            // el stack de captura del motor despertaba su gestor de dispositivos de video.
 
             Ok(())
         })
@@ -1286,8 +1265,12 @@ pub fn run() {
             google_drive::sincronizar_apuntes_registrados,
             audio_config::validar_groq_api_key,
             audio_config::guardar_groq_config,
+            audio_config::guardar_groq_modelo,
             audio_config::obtener_groq_config,
-            guardar_archivo_grabacion,
+            iniciar_captura_audio,
+            nivel_captura_audio,
+            cancelar_captura_audio,
+            detener_captura_audio,
             obtener_grabaciones_apunte,
             actualizar_estado_grabacion,
             eliminar_grabacion,
@@ -1337,66 +1320,110 @@ async fn verificar_actualizacion_manual(app: tauri::AppHandle) -> std::result::R
 
 // ─── Audio Recording Commands ────────────────────────────────────────────────
 
-/// Guarda el archivo de audio en disco e inserta el registro en GRABACION_APUNTE.
-/// La transcodificación a OGG Vorbis se realiza en un hilo de trabajo dedicado (spawn_blocking)
-/// para evitar bloquear el hilo principal y mantener la interfaz de usuario fluida.
+/// Grabación en curso. `None` mientras no se esté grabando.
+#[derive(Default)]
+struct CapturaState {
+    actual: Mutex<Option<audio_capture::Captura>>,
+}
+
+/// Abre el micrófono predeterminado del sistema y empieza a grabar.
 #[tauri::command]
-async fn guardar_archivo_grabacion(
+fn iniciar_captura_audio(
+    state: State<'_, CapturaState>,
+) -> Result<audio_capture::InfoCaptura, String> {
+    let mut actual = state.actual.lock().map_err(|_| "Estado de captura corrupto")?;
+
+    if actual.is_some() {
+        return Err("Ya hay una grabación en curso.".to_string());
+    }
+
+    let captura = audio_capture::Captura::iniciar()?;
+    let info = captura.info();
+    *actual = Some(captura);
+    Ok(info)
+}
+
+/// Nivel de entrada del micrófono en escala [0, 1]; alimenta el medidor de la interfaz.
+#[tauri::command]
+fn nivel_captura_audio(state: State<'_, CapturaState>) -> f32 {
+    state
+        .actual
+        .lock()
+        .ok()
+        .and_then(|c| c.as_ref().map(|c| c.pico()))
+        .unwrap_or(0.0)
+}
+
+/// Descarta la grabación en curso y suelta el micrófono.
+#[tauri::command]
+fn cancelar_captura_audio(state: State<'_, CapturaState>) -> Result<(), String> {
+    let mut actual = state.actual.lock().map_err(|_| "Estado de captura corrupto")?;
+    // Al soltar la `Captura` su `Drop` detiene el hilo y cierra el dispositivo.
+    *actual = None;
+    Ok(())
+}
+
+/// Detiene la grabación, la codifica a OGG, la guarda junto al apunte y la registra en la DB.
+#[tauri::command]
+async fn detener_captura_audio(
     codigo_apunte: u32,
     ruta_apunte: String,
-    bytes_audio: Vec<u8>,
-    duracion_segundos: u32,
-    _mime_type: Option<String>,
+    captura: State<'_, CapturaState>,
     state: State<'_, DbState>,
 ) -> Result<GrabacionApunte, String> {
     use chrono::Local;
+
+    let grabacion = {
+        let mut actual = captura.actual.lock().map_err(|_| "Estado de captura corrupto")?;
+        actual.take().ok_or("No hay ninguna grabación en curso.")?
+    };
+
+    let canales = grabacion.canales.max(1) as usize;
+    let sample_rate = grabacion.sample_rate;
+    let duracion_segundos = grabacion.duracion_segundos();
+    let muestras = grabacion.finalizar();
 
     let ahora = Local::now();
     let fecha_str = ahora.format("%Y/%m/%d %H:%M:%S").to_string();
     let nombre_ts = ahora.format("%Y%m%d_%H%M%S").to_string();
 
-    // Derivar el directorio del apunte
-    let parent_dir = {
-        let p = Path::new(&ruta_apunte);
-        p.parent()
-            .map(|d| d.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."))
-    };
-
-    // Nombre del archivo: <stem>_grabacion_<timestamp>.ogg
-    let stem = Path::new(&ruta_apunte)
+    // El audio se guarda junto al apunte, como <stem>_grabacion_<timestamp>.ogg
+    let ruta = Path::new(&ruta_apunte);
+    let parent_dir = ruta
+        .parent()
+        .map(|d| d.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+    let stem = ruta
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("apunte")
         .to_string();
-    let nombre_archivo = format!("{}_grabacion_{}.ogg", stem, nombre_ts);
-    let ruta_audio = parent_dir.join(&nombre_archivo);
-    let ruta_audio_clone = ruta_audio.clone();
 
-    // Ejecutar la codificación pesada a OGG Vorbis en un hilo de trabajo en segundo plano
+    // La codificación es la parte pesada: va a un hilo de trabajo para no bloquear la interfaz.
     let ruta_audio_str = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
-        let bytes_ogg = match audio_encoder::asegurar_formato_ogg(&bytes_audio) {
-            Ok(ogg) => ogg,
-            Err(err) => {
-                eprintln!("[audio] Advertencia al convertir a OGG (usando bytes originales): {}", err);
-                bytes_audio
-            }
-        };
+        let preparado = audio_encoder::preparar_pcm(&muestras, canales, sample_rate)?;
 
-        eprintln!("[audio] Guardando grabación en formato OGG Mono ({} bytes) en worker thread...", bytes_ogg.len());
+        let ruta_audio = parent_dir.join(format!(
+            "{}_grabacion_{}.{}",
+            stem, nombre_ts, preparado.extension
+        ));
 
-        fs::write(&ruta_audio_clone, &bytes_ogg)
-            .map_err(|e| format!("Error escribiendo archivo de audio OGG: {}", e))?;
+        eprintln!(
+            "[audio] Guardando grabación ({}, {:.2} MB)...",
+            preparado.mime,
+            preparado.bytes.len() as f64 / (1024.0 * 1024.0)
+        );
 
-        let r_str = ruta_audio_clone
+        fs::write(&ruta_audio, &preparado.bytes)
+            .map_err(|e| format!("Error escribiendo el archivo de audio: {}", e))?;
+
+        ruta_audio
             .to_str()
-            .ok_or("Ruta de audio inválida")?
-            .to_string();
-
-        Ok(r_str)
+            .map(str::to_string)
+            .ok_or_else(|| "Ruta de audio inválida".to_string())
     })
     .await
-    .map_err(|e| format!("Error en hilo de procesamiento de audio: {}", e))??;
+    .map_err(|e| format!("Error en el hilo de procesamiento de audio: {}", e))??;
 
     // Insertar en DB
     let db = state.db.lock().unwrap();
@@ -1511,12 +1538,8 @@ async fn transcribir_grabacion_groq(
     state: State<'_, DbState>,
 ) -> Result<TranscripcionResultado, String> {
     // 1. Obtener la configuración de Groq
-    let config = audio_config::obtener_groq_config(app)?
+    let config = audio_config::leer_groq_config(&app)?
         .ok_or_else(|| "Debes configurar tu API Key de Groq en Configuración antes de transcribir.".to_string())?;
-
-    if config.api_key.trim().is_empty() {
-        return Err("La API Key de Groq está vacía. Por favor configúrala en Ajustes.".to_string());
-    }
 
     // 2. Obtener los datos de la grabación desde la DB
     let (ruta_audio, fecha_grabacion) = {
@@ -1544,6 +1567,20 @@ async fn transcribir_grabacion_groq(
     let audio_bytes = fs::read(audio_path)
         .map_err(|e| format!("Error leyendo el archivo de audio: {}", e))?;
 
+    // Mejor fallar acá con un mensaje claro que gastar la subida para que Groq la rechace.
+    if audio_bytes.len() > audio_encoder::LIMITE_GROQ_BYTES {
+        let msg = format!(
+            "La grabación pesa {:.1} MB y supera el límite de 25 MB de la API de Groq.",
+            audio_bytes.len() as f64 / (1024.0 * 1024.0)
+        );
+        let db = state.db.lock().unwrap();
+        let _ = db.execute(
+            "UPDATE GRABACION_APUNTE SET estado_transcripcion = 'error', error_mensaje = ?1 WHERE codigo_grabacion = ?2",
+            (&msg, codigo_grabacion),
+        );
+        return Err(msg);
+    }
+
     // 4. Marcar estado como 'transcribiendo'
     {
         let db = state.db.lock().unwrap();
@@ -1557,25 +1594,44 @@ async fn transcribir_grabacion_groq(
     let file_name = audio_path
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or("audio.ogg")
+        .unwrap_or("grabacion.ogg")
         .to_string();
 
+    // El MIME sale de la extensión con la que se guardó, no de una constante: la grabación
+    // puede ser ogg, webm o m4a según lo que haya producido MediaRecorder en cada plataforma.
+    let mime = audio_encoder::mime_por_extension(&ruta_audio);
     let part = reqwest::multipart::Part::bytes(audio_bytes)
         .file_name(file_name)
-        .mime_str("audio/ogg")
-        .unwrap_or_else(|_| reqwest::multipart::Part::bytes(vec![]));
+        .mime_str(mime)
+        .map_err(|e| format!("MIME inválido para el audio ({}): {}", mime, e))?;
 
-    let form = reqwest::multipart::Form::new()
+    let mut form = reqwest::multipart::Form::new()
         .part("file", part)
         .text("model", config.modelo.clone())
-        .text("response_format", "json");
+        .text("response_format", "json")
+        // Sin temperatura fija, Whisper es más propenso a inventar texto cuando el audio
+        // trae poca voz.
+        .text("temperature", "0");
+
+    // Fijar el idioma evita que Whisper lo autodetecte mal y devuelva la transcripción en
+    // otro idioma. Vacío = se deja que lo detecte.
+    if !config.idioma.trim().is_empty() {
+        form = form.text("language", config.idioma.clone());
+    }
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
         .build()
         .map_err(|e| format!("Error creando cliente HTTP: {}", e))?;
 
-    eprintln!("[groq] Enviando audio #{} a Groq Whisper ({}) con modelo '{}'...", codigo_grabacion, ruta_audio, config.modelo);
+    eprintln!(
+        "[groq] Enviando audio #{} ({}, {}) con modelo '{}' e idioma '{}'...",
+        codigo_grabacion,
+        ruta_audio,
+        mime,
+        config.modelo,
+        if config.idioma.is_empty() { "auto" } else { &config.idioma }
+    );
 
     let res = client
         .post("https://api.groq.com/openai/v1/audio/transcriptions")
@@ -1648,4 +1704,5 @@ async fn transcribir_grabacion_groq(
         fecha_grabacion,
     })
 }
+
 
