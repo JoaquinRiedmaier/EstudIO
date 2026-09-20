@@ -461,6 +461,10 @@
               <span class="grabacion-dot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; flex-shrink: 0;"></span>
               <span style="color: #ef4444; font-weight: 600;">Grabando...</span>
               <span id="grabacion-cronometro" style="font-family: var(--font-mono, monospace); color: var(--text-secondary); min-width: 110px;">00:00 / 60:00</span>
+              <!-- Medidor de entrada: si el micrófono no está tomando nada, se ve al instante -->
+              <span style="width: 70px; height: 6px; background: rgba(127,127,127,0.25); border-radius: 3px; overflow: hidden; flex-shrink: 0;" title="Nivel de entrada del micrófono">
+                <span id="grabacion-nivel-barra" style="display: block; height: 100%; width: 0%; background: #22c55e;"></span>
+              </span>
               <span style="margin-left: auto; display: flex; gap: 0.4rem;">
                 <button id="btn-grabacion-detener" class="btn-primary" style="margin-top:0; padding: 0.3rem 0.7rem; font-size: 0.8rem; width: auto; display: flex; align-items: center; gap: 0.3rem;">
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
@@ -960,6 +964,15 @@
             <select id="groq-model" class="groq-model-select">
               <option value="whisper-large-v3-turbo">whisper-large-v3-turbo (Recomendado)</option>
               <option value="whisper-large-v3">whisper-large-v3</option>
+            </select>
+            <select id="groq-idioma" class="groq-model-select" title="Idioma del audio a transcribir">
+              <option value="es">Idioma del audio: Español (Recomendado)</option>
+              <option value="en">Idioma del audio: Inglés</option>
+              <option value="pt">Idioma del audio: Portugués</option>
+              <option value="fr">Idioma del audio: Francés</option>
+              <option value="it">Idioma del audio: Italiano</option>
+              <option value="de">Idioma del audio: Alemán</option>
+              <option value="">Idioma del audio: Detectar automáticamente</option>
             </select>
             <button id="btn-groq-test-save" class="btn-primary" style="width:100%; padding:0.5rem; font-size:0.85rem;">
               Probar y Guardar Clave
