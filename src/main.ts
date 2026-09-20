@@ -1282,6 +1282,18 @@ function setupEditor() {
   });
 
   btnGuardarCerrar?.addEventListener("click", async () => {
+    // Una grabación en curso no se descarta al salir por acá: se corta y se deja correr el
+    // pipeline entero —codificación a OGG, archivo junto al apunte y alta en la DB— antes de
+    // guardar y cerrar. Lo que sí descarta es el botón "Cancelar" del banner de grabación.
+    if (grabacionActiva) {
+      setButtonLoading(btnGuardarCerrar, true, "Cerrando grabación…");
+      try {
+        await detenerGrabacion(false);
+      } finally {
+        setButtonLoading(btnGuardarCerrar, false);
+      }
+    }
+
     const exito = await guardarApunteActual();
     if (exito) {
       if (currentEditSincronizarDrive && currentEditPath) {
@@ -3585,8 +3597,16 @@ async function iniciarGrabacion() {
   }, 1000);
 }
 
-async function detenerGrabacion(cancelar: boolean) {
-  if (!grabacionActiva) return;
+/**
+ * Corta la captura en curso.
+ *
+ * Con `cancelar` en false se recorre el pipeline entero: se suelta el dispositivo, el PCM se
+ * codifica a OGG en un hilo de trabajo, el archivo queda junto al apunte y la grabación se
+ * registra en la DB. Devuelve si la grabación terminó guardada, para que quien cierre el
+ * editor sepa si puede seguir.
+ */
+async function detenerGrabacion(cancelar: boolean): Promise<boolean> {
+  if (!grabacionActiva) return false;
   grabacionActiva = false;
 
   for (const intervalo of [timerInterval, nivelInterval]) {
@@ -3604,13 +3624,13 @@ async function detenerGrabacion(cancelar: boolean) {
     } catch (err) {
       console.warn('[audio] Error cancelando la grabación:', err);
     }
-    return;
+    return false;
   }
 
   if (currentEditCodigo === null || !currentEditPath) {
     showToast('No hay un apunte abierto donde guardar la grabación.', 'error');
     await invoke('cancelar_captura_audio').catch(() => {});
-    return;
+    return false;
   }
 
   // Tarjeta temporal mientras el hilo de trabajo codifica el OGG.
@@ -3646,10 +3666,12 @@ async function detenerGrabacion(cancelar: boolean) {
     actualizarBannerPendientes(pendientesRestantes);
 
     showToast('Grabación guardada correctamente.', 'success');
+    return true;
   } catch (err: any) {
     placeholder.remove();
     console.error('[audio] Error guardando la grabación:', err);
     showToast(`${err}`, 'error');
+    return false;
   }
 }
 
