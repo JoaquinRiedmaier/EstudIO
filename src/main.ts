@@ -1734,6 +1734,29 @@ function setupEditor() {
       (el as HTMLElement).style.cssText += `; margin: 0.15em 0; font-family: ${FONT}; font-size: 11pt; page-break-inside: avoid !important; break-inside: avoid !important;`;
     });
 
+    // Tablas
+    root.querySelectorAll(".column-resize-handle").forEach((el) => el.remove());
+    root.querySelectorAll("table").forEach((el) => {
+      const tableEl = el as HTMLElement;
+      tableEl.style.cssText += `; width: 100% !important; border-collapse: collapse !important; margin: 1em 0 !important; font-family: ${FONT}; page-break-inside: avoid !important; break-inside: avoid !important;`;
+    });
+    root.querySelectorAll("th").forEach((el) => {
+      const thEl = el as HTMLElement;
+      thEl.style.cssText += `; background-color: ${COLOR_ACCENT} !important; color: #f8fafc !important; font-weight: 700 !important; font-size: 10pt !important; padding: 8px 10px !important; border: 1px solid #1e3629 !important; text-align: left !important; vertical-align: middle !important;`;
+      thEl.querySelectorAll("*").forEach((child) => {
+        const childEl = child as HTMLElement;
+        childEl.style.cssText += `; color: #f8fafc !important; margin: 0 !important;`;
+      });
+    });
+    root.querySelectorAll("td").forEach((el) => {
+      const tdEl = el as HTMLElement;
+      tdEl.style.cssText += `; border: 1px solid #dcd7c8 !important; padding: 6px 10px !important; font-size: 9.5pt !important; color: ${COLOR_TEXT} !important; vertical-align: top !important; background-color: #ffffff;`;
+      tdEl.querySelectorAll("p").forEach((child) => {
+        const childEl = child as HTMLElement;
+        childEl.style.cssText += `; margin: 0 0 0.2em 0 !important;`;
+      });
+    });
+
     // Imágenes: Evitar cortes e impedir desbordamientos
     root.querySelectorAll("img").forEach((el) => {
       const imgEl = el as HTMLElement;
