@@ -7,9 +7,7 @@ import { seleccionarRuta } from "./file";
 import { Editor, Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
-import { jsPDF } from "jspdf";
-// @ts-ignore
-import html2pdf from "html2pdf.js";
+import { generarPdfApunte } from "./exportarPdf";
 
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
@@ -1501,109 +1499,20 @@ function setupEditor() {
     `;
     document.body.appendChild(overlay);
 
-    let container: HTMLElement | null = null;
-
     try {
-      const editorEl = document.querySelector("#tiptap-editor .tiptap") as HTMLElement | null;
-      if (!editorEl) throw new Error("No se encontró el elemento del editor");
-
-      // 1. Clonar el contenido y convertir todas las imágenes a Base64
-      const clone = editorEl.cloneNode(true) as HTMLElement;
-      const imgOriginals = Array.from(editorEl.querySelectorAll("img")) as HTMLImageElement[];
-      const imgClones = Array.from(clone.querySelectorAll("img")) as HTMLImageElement[];
-
-      await Promise.all(
-        imgOriginals.map(async (origImg, i) => {
-          const cloneImg = imgClones[i];
-          if (!cloneImg) return;
-          try {
-            cloneImg.src = await imgToDataUrl(origImg.src);
-          } catch (e) {
-            console.warn("No se pudo convertir imagen a base64:", origImg.src, e);
-          }
-        })
-      );
-
-      // 2. Crear contenedor temporal A4 (ancho 750px) sin padding interno duplicado
-      container = document.createElement("div");
-      container.style.cssText = [
-        "position: absolute",
-        "top: 0",
-        "left: 0",
-        "width: 750px",
-        "background: #ffffff",
-        "color: #1a1a1a",
-        "font-family: 'Inter', system-ui, -apple-system, sans-serif",
-        "font-size: 11pt",
-        "line-height: 1.6",
-        "padding: 0px",
-        "margin: 0px",
-        "box-sizing: border-box",
-        "z-index: 999999",
-        "pointer-events: none",
-        "overflow: visible",
-      ].join("; ");
-
-      // Eliminar text-align: justify de TODO el clon antes de aplicar estilos.
-      // cssText += con !important no es respetado por Chromium para inline styles;
-      // la única forma confiable es setProperty con priority 'important'.
-      clone.querySelectorAll<HTMLElement>("*").forEach((el) => {
-        if (el.style.textAlign === "justify") {
-          el.style.removeProperty("text-align");
-          el.style.setProperty("text-align", "left", "important");
-        }
-      });
-      // Aplicar inline styles
-      inlineEditorStyles(clone);
-
-      container.appendChild(clone);
-      document.body.appendChild(container);
-
-      // Pequeña pausa para asegurar renderizado en el DOM
-      await new Promise((r) => setTimeout(r, 150));
-
       const pdfPath = currentEditPath.replace(/\.md$/i, ".pdf");
       const fileName = pdfPath.split(/[\/\\]/).pop() ?? "apunte.pdf";
+      const editorEl = document.querySelector("#tiptap-editor .tiptap") as HTMLElement | null;
 
-      // 3. Crear documento jsPDF en pt (A4 = 595.28 pt x 841.89 pt)
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: "a4",
-      });
-
-      // Márgenes A4: 1.5 cm top/right/bottom, 2 cm left (1 pt ≈ 0.03528 cm)
-      const marginTop    = 42.5;  // 1.5 cm
-      const marginRight  = 42.5;  // 1.5 cm
-      const marginBottom = 42.5;  // 1.5 cm
-      const marginLeft   = 56.7;  // 2 cm
-      const printWidthPt = 595.28 - marginLeft - marginRight; // ≈ 496 pt
-
-      await pdf.html(container, {
-        x: marginLeft,
-        y: marginTop,
-        width: printWidthPt,
-        windowWidth: 750,
-        autoPaging: "text",
-        html2canvas: {
-          scale: printWidthPt / 750, // escala dinámica exacta, evita offset acumulativo en páginas pares
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: "#ffffff",
-          logging: false,
-        },
-        margin: [marginTop, marginRight, marginBottom, marginLeft],
-      });
-
-      // 4. Obtener string Base64 del PDF generado
-      const dataUri = pdf.output("datauristring");
-      const base64Content = dataUri.split(",")[1] || "";
-
+      const base64Content = await generarPdfApunte(
+        editorInstancia.getHTML(),
+        fileName.replace(/\.pdf$/i, ""),
+        editorEl
+      );
       if (!base64Content) {
         throw new Error("No se pudo generar el contenido Base64 del PDF");
       }
 
-      // 5. Guardar en disco vía Tauri IPC
       await invoke("guardar_pdf", { path: pdfPath, contentBase64: base64Content });
 
       showToast(`PDF guardado con éxito: ${fileName}`, "success");
@@ -1611,170 +1520,12 @@ function setupEditor() {
       console.error("Error al exportar PDF:", err);
       showToast(`Error al exportar PDF: ${err.message || err}`, "error");
     } finally {
-      if (container && document.body.contains(container)) {
-        document.body.removeChild(container);
-      }
       if (document.body.contains(overlay)) {
         document.body.removeChild(overlay);
       }
       btnExportarPdf.disabled = false;
     }
   });
-
-  /**
-   * Convierte cualquier URL de imagen a Data URL Base64 de forma infalible.
-   */
-  async function imgToDataUrl(src: string): Promise<string> {
-    if (!src) return src;
-    if (src.startsWith("data:")) return src;
-
-    try {
-      const response = await fetch(src);
-      const blob = await response.blob();
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(src);
-        reader.readAsDataURL(blob);
-      });
-    } catch {
-      return new Promise<string>((resolve) => {
-        const img = document.createElement("img") as HTMLImageElement;
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          try {
-            const canvas = document.createElement("canvas");
-            canvas.width = img.naturalWidth || img.width || 300;
-            canvas.height = img.naturalHeight || img.height || 150;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) { resolve(src); return; }
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL("image/png"));
-          } catch {
-            resolve(src);
-          }
-        };
-        img.onerror = () => resolve(src);
-        img.src = src;
-      });
-    }
-  }
-
-  /**
-   * Aplica inline styles a los elementos clonados para asegurar fidelidad estética en PDF
-   * e impedir que las imágenes o bloques desborden.
-   */
-  function inlineEditorStyles(root: HTMLElement): void {
-    const FONT = "'Inter', system-ui, -apple-system, sans-serif";
-    const COLOR_TEXT = "#2c2a29";
-    const COLOR_ACCENT = "#2c4c3b";
-
-    root.style.fontFamily = FONT;
-    root.style.fontSize = "11pt";
-    root.style.lineHeight = "1.6";
-    root.style.color = COLOR_TEXT;
-    root.style.background = "#ffffff";
-    root.style.margin = "0px";
-    root.style.padding = "0px";
-
-    // Eliminar margen superior del primer elemento hijo para evitar espacio en blanco inicial
-    const firstChild = root.firstElementChild as HTMLElement | null;
-    if (firstChild) {
-      firstChild.style.marginTop = "0px";
-    }
-
-    // Párrafos
-    root.querySelectorAll("p").forEach((el) => {
-      const h = el as HTMLElement;
-      h.style.cssText += `; margin: 0 0 0.6em 0; font-family: ${FONT}; font-size: 11pt; color: ${COLOR_TEXT}; page-break-inside: avoid; break-inside: avoid;`;
-    });
-
-    // Títulos
-    root.querySelectorAll("h1").forEach((el) => {
-      const h = el as HTMLElement;
-      h.style.cssText += `; font-family: ${FONT}; font-size: 20pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 1em 0 0.4em; line-height: 1.2; text-align: left !important; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-    root.querySelectorAll("h2").forEach((el) => {
-      const h = el as HTMLElement;
-      h.style.cssText += `; font-family: ${FONT}; font-size: 15pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 0.9em 0 0.35em; line-height: 1.25; text-align: left !important; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-    root.querySelectorAll("h3").forEach((el) => {
-      const h = el as HTMLElement;
-      h.style.cssText += `; font-family: ${FONT}; font-size: 12pt; font-weight: 700; color: ${COLOR_TEXT}; margin: 0.8em 0 0.3em; line-height: 1.3; text-align: left !important; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-
-    // Formato de texto
-    root.querySelectorAll("strong, b").forEach((el) => {
-      (el as HTMLElement).style.fontWeight = "700";
-    });
-    root.querySelectorAll("em, i").forEach((el) => {
-      (el as HTMLElement).style.fontStyle = "italic";
-    });
-    root.querySelectorAll("s, del").forEach((el) => {
-      (el as HTMLElement).style.textDecoration = "line-through";
-    });
-
-    // Resaltados (mark)
-    root.querySelectorAll("mark").forEach((el) => {
-      const markEl = el as HTMLElement;
-      const existingBg = markEl.style.backgroundColor;
-      const bg = existingBg && existingBg !== "" ? existingBg : "#fef08a";
-      markEl.style.cssText += `; background-color: ${bg} !important; color: ${COLOR_TEXT}; border-radius: 2px; padding: 0.1em 0.2em; display: inline; box-decoration-break: clone; -webkit-box-decoration-break: clone;`;
-    });
-
-    // Bloques de código
-    root.querySelectorAll("code").forEach((el) => {
-      const codeEl = el as HTMLElement;
-      if (codeEl.parentElement?.tagName !== "PRE") {
-        codeEl.style.cssText += "; background: #f0ede6; color: #c0392b; padding: 0.1em 0.3em; border-radius: 3px; font-family: monospace; font-size: 0.9em;";
-      }
-    });
-    root.querySelectorAll("pre").forEach((el) => {
-      (el as HTMLElement).style.cssText += "; background: #f5f2ec; border: 1px solid #dcd7c8; border-radius: 4px; padding: 0.8em 1em; white-space: pre-wrap; word-break: break-all; font-family: monospace; font-size: 9pt; margin: 0.6em 0; page-break-inside: avoid !important; break-inside: avoid !important;";
-    });
-
-    // Citas
-    root.querySelectorAll("blockquote").forEach((el) => {
-      (el as HTMLElement).style.cssText += `; border-left: 3px solid ${COLOR_ACCENT}; margin: 0.6em 0; padding: 0.3em 0.8em; color: #555555; background: #f9f8f4; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-
-    // Listas
-    root.querySelectorAll("ul, ol").forEach((el) => {
-      (el as HTMLElement).style.cssText += "; margin: 0.4em 0 0.4em 1.4em; padding: 0;";
-    });
-    root.querySelectorAll("li").forEach((el) => {
-      (el as HTMLElement).style.cssText += `; margin: 0.15em 0; font-family: ${FONT}; font-size: 11pt; text-align: left !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-
-    // Tablas
-    root.querySelectorAll(".column-resize-handle").forEach((el) => el.remove());
-    root.querySelectorAll("table").forEach((el) => {
-      const tableEl = el as HTMLElement;
-      tableEl.style.cssText += `; width: 100% !important; border-collapse: collapse !important; margin: 1em 0 !important; font-family: ${FONT}; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-    root.querySelectorAll("th").forEach((el) => {
-      const thEl = el as HTMLElement;
-      thEl.style.cssText += `; background-color: ${COLOR_ACCENT} !important; color: #f8fafc !important; font-weight: 700 !important; font-size: 10pt !important; padding: 8px 10px !important; border: 1px solid #1e3629 !important; text-align: left !important; vertical-align: middle !important;`;
-      thEl.querySelectorAll("*").forEach((child) => {
-        const childEl = child as HTMLElement;
-        childEl.style.cssText += `; color: #f8fafc !important; margin: 0 !important;`;
-      });
-    });
-    root.querySelectorAll("td").forEach((el) => {
-      const tdEl = el as HTMLElement;
-      tdEl.style.cssText += `; border: 1px solid #dcd7c8 !important; padding: 6px 10px !important; font-size: 9.5pt !important; color: ${COLOR_TEXT} !important; vertical-align: top !important; background-color: #ffffff;`;
-      tdEl.querySelectorAll("p").forEach((child) => {
-        const childEl = child as HTMLElement;
-        childEl.style.cssText += `; margin: 0 0 0.2em 0 !important;`;
-      });
-    });
-
-    // Imágenes: Evitar cortes e impedir desbordamientos
-    root.querySelectorAll("img").forEach((el) => {
-      const imgEl = el as HTMLElement;
-      imgEl.style.cssText += "; max-width: 100% !important; height: auto !important; display: block; margin: 0.8em auto; page-break-inside: avoid !important; break-inside: avoid !important;";
-    });
-  }
 
   btnToggleSidebar?.addEventListener("click", () => {
     const container = document.querySelector(".app-container");
