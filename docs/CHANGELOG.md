@@ -1,3 +1,8 @@
+# Version 1.3.5 (2026-09-24)
+- **Nueva Funcionalidad:** Transcribir: agregamos dictado por voz con transcripción automática al final del apunte activo. El feature incluye soporte offline: los audios se cachean localmente por apunte y el procesamiento del texto se encola hasta recuperar la conexión a internet, asegurando la persistencia de datos sin depender de estar siempre online. Para activar esta funcionalidad tenes que cargar tu propia API KEY en configuraciones. Registrate y creala aca --> https://groq.com/
+- **FIX:** Arrglamos el generador de PDF, podría darte problemas en el pasado pero ahora lo pulimos para que te proporcione mejores PDFs.
+- **FIX:** En las tablas, se solía generar una letra negra en el nombre de las columnas, al generar PDFs, lo cual era ilegible. Ahora es blanco EstudIO para que te quede pipicucú la tabla de tu apunte.
+
 # Version 1.2.4 (2026-09-08)
 - **FIX:** Actualizada la validación al crear materias para admitir carreras de 1 a 6 años.
 - **FIX:** Simplificación de etiquetas de fecha y hora en el formulario de recordatorios.

@@ -1544,6 +1544,15 @@ function setupEditor() {
         "overflow: visible",
       ].join("; ");
 
+      // Eliminar text-align: justify de TODO el clon antes de aplicar estilos.
+      // cssText += con !important no es respetado por Chromium para inline styles;
+      // la única forma confiable es setProperty con priority 'important'.
+      clone.querySelectorAll<HTMLElement>("*").forEach((el) => {
+        if (el.style.textAlign === "justify") {
+          el.style.removeProperty("text-align");
+          el.style.setProperty("text-align", "left", "important");
+        }
+      });
       // Aplicar inline styles
       inlineEditorStyles(clone);
 
@@ -1563,24 +1572,27 @@ function setupEditor() {
         format: "a4",
       });
 
-      // Márgenes de 20pt en los 4 bordes. Ancho útil = 595.28 - 40 = 555.28 pt
-      const marginPt = 20;
-      const printWidthPt = 595.28 - marginPt * 2;
+      // Márgenes A4: 1.5 cm top/right/bottom, 2 cm left (1 pt ≈ 0.03528 cm)
+      const marginTop    = 42.5;  // 1.5 cm
+      const marginRight  = 42.5;  // 1.5 cm
+      const marginBottom = 42.5;  // 1.5 cm
+      const marginLeft   = 56.7;  // 2 cm
+      const printWidthPt = 595.28 - marginLeft - marginRight; // ≈ 496 pt
 
       await pdf.html(container, {
-        x: 0,
-        y: 0,
+        x: marginLeft,
+        y: marginTop,
         width: printWidthPt,
         windowWidth: 750,
         autoPaging: "text",
         html2canvas: {
-          scale: 0.74, // 555.28 / 750
+          scale: printWidthPt / 750, // escala dinámica exacta, evita offset acumulativo en páginas pares
           useCORS: true,
           allowTaint: true,
           backgroundColor: "#ffffff",
           logging: false,
         },
-        margin: [marginPt, marginPt, marginPt, marginPt],
+        margin: [marginTop, marginRight, marginBottom, marginLeft],
       });
 
       // 4. Obtener string Base64 del PDF generado
@@ -1674,21 +1686,21 @@ function setupEditor() {
     // Párrafos
     root.querySelectorAll("p").forEach((el) => {
       const h = el as HTMLElement;
-      h.style.cssText += `; margin: 0 0 0.6em 0; font-family: ${FONT}; font-size: 11pt; color: ${COLOR_TEXT}; page-break-inside: avoid !important; break-inside: avoid !important;`;
+      h.style.cssText += `; margin: 0 0 0.6em 0; font-family: ${FONT}; font-size: 11pt; color: ${COLOR_TEXT}; page-break-inside: avoid; break-inside: avoid;`;
     });
 
     // Títulos
     root.querySelectorAll("h1").forEach((el) => {
       const h = el as HTMLElement;
-      h.style.cssText += `; font-family: ${FONT}; font-size: 20pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 1em 0 0.4em; line-height: 1.2; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
+      h.style.cssText += `; font-family: ${FONT}; font-size: 20pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 1em 0 0.4em; line-height: 1.2; text-align: left !important; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
     });
     root.querySelectorAll("h2").forEach((el) => {
       const h = el as HTMLElement;
-      h.style.cssText += `; font-family: ${FONT}; font-size: 15pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 0.9em 0 0.35em; line-height: 1.25; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
+      h.style.cssText += `; font-family: ${FONT}; font-size: 15pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 0.9em 0 0.35em; line-height: 1.25; text-align: left !important; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
     });
     root.querySelectorAll("h3").forEach((el) => {
       const h = el as HTMLElement;
-      h.style.cssText += `; font-family: ${FONT}; font-size: 12pt; font-weight: 700; color: ${COLOR_TEXT}; margin: 0.8em 0 0.3em; line-height: 1.3; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
+      h.style.cssText += `; font-family: ${FONT}; font-size: 12pt; font-weight: 700; color: ${COLOR_TEXT}; margin: 0.8em 0 0.3em; line-height: 1.3; text-align: left !important; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
     });
 
     // Formato de texto
@@ -1731,7 +1743,7 @@ function setupEditor() {
       (el as HTMLElement).style.cssText += "; margin: 0.4em 0 0.4em 1.4em; padding: 0;";
     });
     root.querySelectorAll("li").forEach((el) => {
-      (el as HTMLElement).style.cssText += `; margin: 0.15em 0; font-family: ${FONT}; font-size: 11pt; page-break-inside: avoid !important; break-inside: avoid !important;`;
+      (el as HTMLElement).style.cssText += `; margin: 0.15em 0; font-family: ${FONT}; font-size: 11pt; text-align: left !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
     });
 
     // Tablas
