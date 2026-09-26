@@ -1,3 +1,12 @@
+# Version 1.3.5 (2026-09-24)
+- **Nueva Funcionalidad:** Transcribir: agregamos dictado por voz con transcripción automática al final del apunte activo. El feature incluye soporte offline: los audios se cachean localmente por apunte y el procesamiento del texto se encola hasta recuperar la conexión a internet, asegurando la persistencia de datos sin depender de estar siempre online. Para activar esta funcionalidad tenes que cargar tu propia API KEY en configuraciones. Registrate y creala aca --> https://groq.com/
+- **FIX:** Arrglamos el generador de PDF, podría darte problemas en el pasado pero ahora lo pulimos para que te proporcione mejores PDFs.
+- **FIX:** En las tablas, se solía generar una letra negra en el nombre de las columnas, al generar PDFs, lo cual era ilegible. Ahora es blanco EstudIO para que te quede pipicucú la tabla de tu apunte.
+
+# Version 1.2.4 (2026-09-08)
+- **FIX:** Actualizada la validación al crear materias para admitir carreras de 1 a 6 años.
+- **FIX:** Simplificación de etiquetas de fecha y hora en el formulario de recordatorios.
+
 # Version 1.2.3 (2026-09-03)
 - **Nueva Funcionalidad:** Horarios. Ahora podes crear y gestionar horarios de clases con la opción de compartirlos fácilmente. Podes especificar la materia, el día, la hora de inicio y fin, y el aula correspondiente. Los horarios se visualizan en una cuadrícula intuitiva y se pueden exportar/importar para compartirlos con compañeros.
 - **Nueva Funcionalidad:** Sincronización con Google Drive. Podes activar la sincronización de tus apuntes con Google Drive para tener respaldo automático y acceder a tus notas desde cualquier computadora. Al sincronizar, se crea un archivo ZIP que puedes importar en otra instancia de EstudIO. Si pierdes todos tus datos, simplemente autentícate con tu cuenta de Gmail y recupera todo desde Google Drive.

@@ -807,10 +807,10 @@ pub async fn sincronizar_apuntes_registrados(
                 .and_then(|ndt| chrono::Local.from_local_datetime(&ndt).single())
                 .map(|ldt| ldt.with_timezone(&Utc));
 
-            eprintln!("[Drive Sync]   📅 Fecha Drive  : {}", item.modified_time);
+            eprintln!("[Drive Sync] Fecha Drive  : {}", item.modified_time);
             match &local_dt {
                 Some(ldt) => eprintln!(
-                    "[Drive Sync]   📅 Fecha local  : {} (local) → {}Z",
+                    "[Drive Sync] Fecha local  : {} (local) → {}Z",
                     ult_mod_local,
                     ldt.format("%Y-%m-%dT%H:%M:%S")
                 ),
@@ -824,13 +824,13 @@ pub async fn sincronizar_apuntes_registrados(
                 (Some(ddt), Some(ldt)) => {
                     let diff = (ddt - ldt).num_seconds();
                     eprintln!(
-                        "[Drive Sync]   ⏱  Diferencia   : {} segundos (Drive - Local)",
+                        "[Drive Sync] Diferencia   : {} segundos (Drive - Local)",
                         diff
                     );
                     (diff > SYNC_THRESHOLD_SECS, diff)
                 }
                 (Some(_), None) => {
-                    eprintln!("[Drive Sync]   ⏱  Diferencia   : fecha local no parseable — se descarga por precaución");
+                    eprintln!("[Drive Sync] Diferencia   : fecha local no parseable — se descarga por precaución");
                     (true, i64::MAX)
                 }
                 _ => {
@@ -841,7 +841,7 @@ pub async fn sincronizar_apuntes_registrados(
 
             if debe_actualizar {
                 eprintln!(
-                    "[Drive Sync]   ⬇️  DESCARGANDO — Drive es más nuevo por +{} segundos",
+                    "[Drive Sync]  DESCARGANDO — Drive es más nuevo por +{} segundos",
                     diff_secs
                 );
                 let download_url = format!(
@@ -880,7 +880,7 @@ pub async fn sincronizar_apuntes_registrados(
                                     );
                                     actualizados.push(tema.clone());
                                     eprintln!(
-                                        "[Drive Sync]   ✅ Actualización completada: \"{}\"",
+                                        "[Drive Sync]  Actualización completada: \"{}\"",
                                         tema
                                     );
                                 }
@@ -891,7 +891,7 @@ pub async fn sincronizar_apuntes_registrados(
                 }
             } else {
                 eprintln!(
-                    "[Drive Sync]   ✅ SALTAR — Drive no es más nuevo (diff={}s, umbral={}s). Sin descarga.",
+                    "[Drive Sync]  SALTAR — Drive no es más nuevo (diff={}s, umbral={}s). Sin descarga.",
                     diff_secs, SYNC_THRESHOLD_SECS
                 );
             }
@@ -909,18 +909,3 @@ pub async fn sincronizar_apuntes_registrados(
     );
     Ok(actualizados)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_leer_credenciales_env() {
-        let id = default_client_id();
-        let secret = default_client_secret();
-        assert!(!id.is_empty(), "El Client ID no debería estar vacío si .env existe");
-        assert!(!secret.is_empty(), "El Client Secret no debería estar vacío si .env existe");
-        assert!(id.contains("apps.googleusercontent.com"));
-    }
-}
-

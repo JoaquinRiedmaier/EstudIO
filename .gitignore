@@ -32,3 +32,5 @@ recordatorio_release.txt
 plan/
 docs/functionalities_103.md
 .env
+docs/analisis_transcripcion_whisper.md
+docs/sound/

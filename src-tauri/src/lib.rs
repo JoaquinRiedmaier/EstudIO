@@ -1,8 +1,11 @@
 mod estructuras;
+mod audio_capture;
+mod audio_config;
+pub mod audio_encoder;
 pub mod google_drive;
 use base64::Engine;
 use chrono::{Duration, NaiveDateTime};
-use estructuras::{Apunte, Evento, Materia, SlotsHorario};
+use estructuras::{Apunte, Evento, GrabacionApunte, Materia, SlotsHorario, TranscripcionResultado};
 use serde::{Deserialize, Serialize};
 use image::ImageFormat;
 use rusqlite::{Connection, Result};
@@ -17,6 +20,7 @@ use uuid::Uuid;
 use zip::write::SimpleFileOptions;
 use zip::ZipArchive;
 //Fechas en formato YYYY/MM/DD aca, pero en frontend se usa DD/MM/YYYY
+
 
 pub struct DbState {
     pub db: Mutex<Connection>,
@@ -143,6 +147,33 @@ fn inicio(app: &tauri::App) -> Connection {
             (),
         )
         .expect("Error Creando Índice en SLOTSHORARIO");
+
+    conexion
+        .execute(
+            "CREATE TABLE IF NOT EXISTS GRABACION_APUNTE (
+                codigo_grabacion INTEGER PRIMARY KEY AUTOINCREMENT,
+                codigo_apunte INTEGER NOT NULL,
+                fecha_grabacion TEXT NOT NULL,
+                duracion_segundos INTEGER NOT NULL,
+                ruta_audio TEXT NOT NULL,
+                estado_transcripcion TEXT NOT NULL CHECK (estado_transcripcion IN ('pendiente', 'transcribiendo', 'transcrito', 'error')),
+                error_mensaje TEXT,
+                FOREIGN KEY (codigo_apunte)
+                    REFERENCES APUNTE(codigo_apunte)
+                    ON UPDATE CASCADE
+                    ON DELETE CASCADE
+            )",
+            (),
+        )
+        .expect("Error Creando La Tabla GRABACION_APUNTE");
+
+    conexion
+        .execute(
+            "CREATE INDEX IF NOT EXISTS idx_grabacion_apunte ON GRABACION_APUNTE(codigo_apunte, estado_transcripcion)",
+            (),
+        )
+        .expect("Error Creando Índice en GRABACION_APUNTE");
+
     conexion
 }
 
@@ -156,7 +187,7 @@ fn crear_materia(
 ) -> Result<String, String> {
     if ano < 1 || ano > 6 {
         // valores compatibles con la mayoria de carreras
-        return Err("Año inválido. Debe ser entre 1 y 5.".to_string());
+        return Err("Año inválido. Debe ser entre 1 y 6.".to_string());
     }
     if cuatrimestre != 1 && cuatrimestre != 2 && cuatrimestre != 0 {
         return Err("Cuatrimestre inválido. Debe ser 1 o 2.".to_string());
@@ -506,14 +537,24 @@ fn eliminar_apunte_interno(
     codigo_apunte: u32,
     ruta: &str,
 ) -> Result<(), String> {
-    // Borramos el apunte de la BDD
+    // 1. Borrar archivos de audio asociados a este apunte
+    if let Ok(mut stmt) = db.prepare("SELECT ruta_audio FROM GRABACION_APUNTE WHERE codigo_apunte = ?1") {
+        if let Ok(rows) = stmt.query_map([codigo_apunte], |r| r.get::<_, String>(0)) {
+            for audio_path in rows.flatten() {
+                let _ = fs::remove_file(&audio_path);
+            }
+        }
+    }
+    let _ = db.execute("DELETE FROM GRABACION_APUNTE WHERE codigo_apunte = ?1", (codigo_apunte,));
+
+    // 2. Borramos el apunte de la BDD
     db.execute(
         "DELETE FROM APUNTE WHERE codigo_apunte IS ?1",
         (codigo_apunte,),
     )
     .map_err(|e| format!("Error borrando el apunte {}: {}", codigo_apunte, e))?;
 
-    // Borramos el archivo. Usamos if let para no colapsar la app si el archivo ya no existe.
+    // 3. Borramos el archivo .md
     if let Err(e) = fs::remove_file(ruta) {
         eprintln!(
             "Advertencia: No se pudo borrar el archivo del apunte {}: {}",
@@ -1164,6 +1205,7 @@ pub fn run() {
         .setup(|app| {
             let db = inicio(app);
             app.manage(DbState { db: Mutex::new(db) });
+            app.manage(CapturaState::default());
 
             // Chequeo de actualizaciones en hilo async (no bloqueante)
             let handle = app.handle().clone();
@@ -1172,6 +1214,11 @@ pub fn run() {
                     eprintln!("[updater] Error al verificar actualizaciones: {e}");
                 }
             });
+
+            // Sin bloque de permisos de media para WebKitGTK: la captura ya no pasa por el
+            // webview, así que no hay `getUserMedia` que autorizar. Esto también elimina el
+            // diálogo del portal pidiendo acceso a la cámara, que aparecía porque habilitar
+            // el stack de captura del motor despertaba su gestor de dispositivos de video.
 
             Ok(())
         })
@@ -1216,6 +1263,18 @@ pub fn run() {
             google_drive::listar_apuntes_drive,
             google_drive::descargar_apunte_drive,
             google_drive::sincronizar_apuntes_registrados,
+            audio_config::validar_groq_api_key,
+            audio_config::guardar_groq_config,
+            audio_config::guardar_groq_modelo,
+            audio_config::obtener_groq_config,
+            iniciar_captura_audio,
+            nivel_captura_audio,
+            cancelar_captura_audio,
+            detener_captura_audio,
+            obtener_grabaciones_apunte,
+            actualizar_estado_grabacion,
+            eliminar_grabacion,
+            transcribir_grabacion_groq,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -1258,4 +1317,392 @@ async fn verificar_actualizacion_manual(app: tauri::AppHandle) -> std::result::R
         Ok(None)
     }
 }
+
+// ─── Audio Recording Commands ────────────────────────────────────────────────
+
+/// Grabación en curso. `None` mientras no se esté grabando.
+#[derive(Default)]
+struct CapturaState {
+    actual: Mutex<Option<audio_capture::Captura>>,
+}
+
+/// Abre el micrófono predeterminado del sistema y empieza a grabar.
+#[tauri::command]
+fn iniciar_captura_audio(
+    state: State<'_, CapturaState>,
+) -> Result<audio_capture::InfoCaptura, String> {
+    let mut actual = state.actual.lock().map_err(|_| "Estado de captura corrupto")?;
+
+    if actual.is_some() {
+        return Err("Ya hay una grabación en curso.".to_string());
+    }
+
+    let captura = audio_capture::Captura::iniciar()?;
+    let info = captura.info();
+    *actual = Some(captura);
+    Ok(info)
+}
+
+/// Nivel de entrada del micrófono en escala [0, 1]; alimenta el medidor de la interfaz.
+#[tauri::command]
+fn nivel_captura_audio(state: State<'_, CapturaState>) -> f32 {
+    state
+        .actual
+        .lock()
+        .ok()
+        .and_then(|c| c.as_ref().map(|c| c.pico()))
+        .unwrap_or(0.0)
+}
+
+/// Descarta la grabación en curso y suelta el micrófono.
+#[tauri::command]
+fn cancelar_captura_audio(state: State<'_, CapturaState>) -> Result<(), String> {
+    let mut actual = state.actual.lock().map_err(|_| "Estado de captura corrupto")?;
+    // Al soltar la `Captura` su `Drop` detiene el hilo y cierra el dispositivo.
+    *actual = None;
+    Ok(())
+}
+
+/// Detiene la grabación, la codifica a OGG, la guarda junto al apunte y la registra en la DB.
+#[tauri::command]
+async fn detener_captura_audio(
+    codigo_apunte: u32,
+    ruta_apunte: String,
+    captura: State<'_, CapturaState>,
+    state: State<'_, DbState>,
+) -> Result<GrabacionApunte, String> {
+    use chrono::Local;
+
+    let grabacion = {
+        let mut actual = captura.actual.lock().map_err(|_| "Estado de captura corrupto")?;
+        actual.take().ok_or("No hay ninguna grabación en curso.")?
+    };
+
+    let canales = grabacion.canales.max(1) as usize;
+    let sample_rate = grabacion.sample_rate;
+    let duracion_segundos = grabacion.duracion_segundos();
+    let muestras = grabacion.finalizar();
+
+    let ahora = Local::now();
+    let fecha_str = ahora.format("%Y/%m/%d %H:%M:%S").to_string();
+    let nombre_ts = ahora.format("%Y%m%d_%H%M%S").to_string();
+
+    // El audio se guarda junto al apunte, como <stem>_grabacion_<timestamp>.ogg
+    let ruta = Path::new(&ruta_apunte);
+    let parent_dir = ruta
+        .parent()
+        .map(|d| d.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+    let stem = ruta
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("apunte")
+        .to_string();
+
+    // La codificación es la parte pesada: va a un hilo de trabajo para no bloquear la interfaz.
+    let ruta_audio_str = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let preparado = audio_encoder::preparar_pcm(&muestras, canales, sample_rate)?;
+
+        let ruta_audio = parent_dir.join(format!(
+            "{}_grabacion_{}.{}",
+            stem, nombre_ts, preparado.extension
+        ));
+
+        eprintln!(
+            "[audio] Guardando grabación ({}, {:.2} MB)...",
+            preparado.mime,
+            preparado.bytes.len() as f64 / (1024.0 * 1024.0)
+        );
+
+        fs::write(&ruta_audio, &preparado.bytes)
+            .map_err(|e| format!("Error escribiendo el archivo de audio: {}", e))?;
+
+        ruta_audio
+            .to_str()
+            .map(str::to_string)
+            .ok_or_else(|| "Ruta de audio inválida".to_string())
+    })
+    .await
+    .map_err(|e| format!("Error en el hilo de procesamiento de audio: {}", e))??;
+
+    // Insertar en DB
+    let db = state.db.lock().unwrap();
+    db.execute(
+        "INSERT INTO GRABACION_APUNTE (codigo_apunte, fecha_grabacion, duracion_segundos, ruta_audio, estado_transcripcion) VALUES (?1, ?2, ?3, ?4, 'pendiente')",
+        (codigo_apunte, &fecha_str, duracion_segundos, &ruta_audio_str),
+    )
+    .map_err(|e| format!("Error insertando grabación en DB: {}", e))?;
+
+    let codigo_grabacion = db.last_insert_rowid() as u32;
+
+    Ok(GrabacionApunte {
+        codigo_grabacion,
+        codigo_apunte,
+        fecha_grabacion: fecha_str,
+        duracion_segundos,
+        ruta_audio: ruta_audio_str,
+        estado_transcripcion: "pendiente".to_string(),
+        error_mensaje: None,
+    })
+}
+
+/// Retorna todas las grabaciones de un apunte, ordenadas por fecha descendente.
+#[tauri::command]
+fn obtener_grabaciones_apunte(
+    codigo_apunte: u32,
+    state: State<'_, DbState>,
+) -> Result<Vec<GrabacionApunte>, String> {
+    let db = state.db.lock().unwrap();
+    let mut stmt = db
+        .prepare(
+            "SELECT codigo_grabacion, codigo_apunte, fecha_grabacion, duracion_segundos, ruta_audio, estado_transcripcion, error_mensaje \
+             FROM GRABACION_APUNTE WHERE codigo_apunte = ?1 ORDER BY fecha_grabacion DESC",
+        )
+        .map_err(|e| format!("Error preparando consulta: {}", e))?;
+
+    let grabaciones = stmt
+        .query_map([codigo_apunte], |row| {
+            Ok(GrabacionApunte {
+                codigo_grabacion: row.get::<_, i64>(0)? as u32,
+                codigo_apunte: row.get::<_, i64>(1)? as u32,
+                fecha_grabacion: row.get(2)?,
+                duracion_segundos: row.get::<_, i64>(3)? as u32,
+                ruta_audio: row.get(4)?,
+                estado_transcripcion: row.get(5)?,
+                error_mensaje: row.get(6)?,
+            })
+        })
+        .map_err(|e| format!("Error consultando grabaciones: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(grabaciones)
+}
+
+/// Actualiza el estado de transcripción de una grabación.
+#[tauri::command]
+fn actualizar_estado_grabacion(
+    codigo_grabacion: u32,
+    estado: String,
+    error_mensaje: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<(), String> {
+    let estados_validos = ["pendiente", "transcribiendo", "transcrito", "error"];
+    if !estados_validos.contains(&estado.as_str()) {
+        return Err(format!("Estado inválido: {}", estado));
+    }
+    let db = state.db.lock().unwrap();
+    db.execute(
+        "UPDATE GRABACION_APUNTE SET estado_transcripcion = ?1, error_mensaje = ?2 WHERE codigo_grabacion = ?3",
+        (estado, error_mensaje, codigo_grabacion),
+    )
+    .map_err(|e| format!("Error actualizando estado: {}", e))?;
+    Ok(())
+}
+
+/// Elimina la grabación: borra el archivo .ogg del disco y el registro de la DB.
+#[tauri::command]
+fn eliminar_grabacion(
+    codigo_grabacion: u32,
+    state: State<'_, DbState>,
+) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+
+    // Obtener ruta del archivo antes de borrar
+    let ruta_audio: String = db
+        .query_row(
+            "SELECT ruta_audio FROM GRABACION_APUNTE WHERE codigo_grabacion = ?1",
+            [codigo_grabacion],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Grabación no encontrada: {}", e))?;
+
+    // Borrar archivo de disco (ignorar si no existe)
+    let _ = fs::remove_file(&ruta_audio);
+
+    // Borrar de DB
+    db.execute(
+        "DELETE FROM GRABACION_APUNTE WHERE codigo_grabacion = ?1",
+        [codigo_grabacion],
+    )
+    .map_err(|e| format!("Error eliminando grabación de DB: {}", e))?;
+
+    Ok(())
+}
+
+/// Envía la grabación de audio a Groq Whisper API y retorna el texto transcrito.
+#[tauri::command]
+async fn transcribir_grabacion_groq(
+    codigo_grabacion: u32,
+    app: tauri::AppHandle,
+    state: State<'_, DbState>,
+) -> Result<TranscripcionResultado, String> {
+    // 1. Obtener la configuración de Groq
+    let config = audio_config::leer_groq_config(&app)?
+        .ok_or_else(|| "Debes configurar tu API Key de Groq en Configuración antes de transcribir.".to_string())?;
+
+    // 2. Obtener los datos de la grabación desde la DB
+    let (ruta_audio, fecha_grabacion) = {
+        let db = state.db.lock().unwrap();
+        db.query_row(
+            "SELECT ruta_audio, fecha_grabacion FROM GRABACION_APUNTE WHERE codigo_grabacion = ?1",
+            [codigo_grabacion],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        )
+        .map_err(|e| format!("Grabación #{} no encontrada: {}", codigo_grabacion, e))?
+    };
+
+    // 3. Verificar y leer el archivo de audio
+    let audio_path = Path::new(&ruta_audio);
+    if !audio_path.exists() {
+        let msg = format!("El archivo de audio no existe en el disco: {}", ruta_audio);
+        let db = state.db.lock().unwrap();
+        let _ = db.execute(
+            "UPDATE GRABACION_APUNTE SET estado_transcripcion = 'error', error_mensaje = ?1 WHERE codigo_grabacion = ?2",
+            (&msg, codigo_grabacion),
+        );
+        return Err(msg);
+    }
+
+    let audio_bytes = fs::read(audio_path)
+        .map_err(|e| format!("Error leyendo el archivo de audio: {}", e))?;
+
+    // Mejor fallar acá con un mensaje claro que gastar la subida para que Groq la rechace.
+    if audio_bytes.len() > audio_encoder::LIMITE_GROQ_BYTES {
+        let msg = format!(
+            "La grabación pesa {:.1} MB y supera el límite de 25 MB de la API de Groq.",
+            audio_bytes.len() as f64 / (1024.0 * 1024.0)
+        );
+        let db = state.db.lock().unwrap();
+        let _ = db.execute(
+            "UPDATE GRABACION_APUNTE SET estado_transcripcion = 'error', error_mensaje = ?1 WHERE codigo_grabacion = ?2",
+            (&msg, codigo_grabacion),
+        );
+        return Err(msg);
+    }
+
+    // 4. Marcar estado como 'transcribiendo'
+    {
+        let db = state.db.lock().unwrap();
+        let _ = db.execute(
+            "UPDATE GRABACION_APUNTE SET estado_transcripcion = 'transcribiendo', error_mensaje = NULL WHERE codigo_grabacion = ?1",
+            [codigo_grabacion],
+        );
+    }
+
+    // 5. Construir petición Multipart a Groq
+    let file_name = audio_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("grabacion.ogg")
+        .to_string();
+
+    // El MIME sale de la extensión con la que se guardó, no de una constante: la grabación
+    // puede ser ogg, webm o m4a según lo que haya producido MediaRecorder en cada plataforma.
+    let mime = audio_encoder::mime_por_extension(&ruta_audio);
+    let part = reqwest::multipart::Part::bytes(audio_bytes)
+        .file_name(file_name)
+        .mime_str(mime)
+        .map_err(|e| format!("MIME inválido para el audio ({}): {}", mime, e))?;
+
+    let mut form = reqwest::multipart::Form::new()
+        .part("file", part)
+        .text("model", config.modelo.clone())
+        .text("response_format", "json")
+        // Sin temperatura fija, Whisper es más propenso a inventar texto cuando el audio
+        // trae poca voz.
+        .text("temperature", "0");
+
+    // Fijar el idioma evita que Whisper lo autodetecte mal y devuelva la transcripción en
+    // otro idioma. Vacío = se deja que lo detecte.
+    if !config.idioma.trim().is_empty() {
+        form = form.text("language", config.idioma.clone());
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(300))
+        .build()
+        .map_err(|e| format!("Error creando cliente HTTP: {}", e))?;
+
+    eprintln!(
+        "[groq] Enviando audio #{} ({}, {}) con modelo '{}' e idioma '{}'...",
+        codigo_grabacion,
+        ruta_audio,
+        mime,
+        config.modelo,
+        if config.idioma.is_empty() { "auto" } else { &config.idioma }
+    );
+
+    let res = client
+        .post("https://api.groq.com/openai/v1/audio/transcriptions")
+        .bearer_auth(&config.api_key)
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| {
+            let msg = format!("Error de conexión con Groq: {}", e);
+            let db = state.db.lock().unwrap();
+            let _ = db.execute(
+                "UPDATE GRABACION_APUNTE SET estado_transcripcion = 'error', error_mensaje = ?1 WHERE codigo_grabacion = ?2",
+                (&msg, codigo_grabacion),
+            );
+            msg
+        })?;
+
+    if !res.status().is_success() {
+        let status_code = res.status();
+        let err_text = res.text().await.unwrap_or_default();
+
+        let error_detail = if let Ok(val) = serde_json::from_str::<serde_json::Value>(&err_text) {
+            val["error"]["message"]
+                .as_str()
+                .unwrap_or(&err_text)
+                .to_string()
+        } else {
+            err_text
+        };
+
+        let msg = format!("Groq HTTP {}: {}", status_code, error_detail);
+        eprintln!("[groq] Error al transcribir: {}", msg);
+
+        let db = state.db.lock().unwrap();
+        let _ = db.execute(
+            "UPDATE GRABACION_APUNTE SET estado_transcripcion = 'error', error_mensaje = ?1 WHERE codigo_grabacion = ?2",
+            (&msg, codigo_grabacion),
+        );
+
+        return Err(msg);
+    }
+
+    #[derive(Deserialize)]
+    struct GroqTranscriptionResponse {
+        text: String,
+    }
+
+    let resp_json: GroqTranscriptionResponse = res
+        .json()
+        .await
+        .map_err(|e| format!("Error procesando respuesta JSON de Groq: {}", e))?;
+
+    let texto = resp_json.text.trim().to_string();
+
+    // 6. Al transcribirse con éxito, eliminar el archivo de audio de disco y el registro de la DB
+    let _ = fs::remove_file(&ruta_audio);
+    {
+        let db = state.db.lock().unwrap();
+        let _ = db.execute(
+            "DELETE FROM GRABACION_APUNTE WHERE codigo_grabacion = ?1",
+            [codigo_grabacion],
+        );
+    }
+
+    eprintln!("[groq] Transcripción exitosa y audio eliminado para grabación #{} ({} caracteres)", codigo_grabacion, texto.len());
+
+    Ok(TranscripcionResultado {
+        codigo_grabacion,
+        texto,
+        fecha_grabacion,
+    })
+}
+
 

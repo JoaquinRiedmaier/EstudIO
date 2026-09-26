@@ -130,7 +130,7 @@ async function setupDownloadSection() {
     const res = await fetch(LATEST_RELEASE_API);
     if (!res.ok) throw new Error('GitHub API Error');
     const releaseData = await res.json();
-    const versionTag = releaseData.tag_name || releaseData.name || 'v1.2.3';
+    const versionTag = releaseData.tag_name || releaseData.name || 'v1.2.4';
     
     if (releaseTagEl) releaseTagEl.textContent = versionTag;
 
@@ -220,7 +220,7 @@ async function setupDownloadSection() {
     console.warn('Fallback to default release URL:', err);
     if (btnDownload) btnDownload.href = FALLBACK_RELEASE_URL;
     if (btnDownloadText) btnDownloadText.textContent = `Descargar EstudIO para ${sys.osLabel}`;
-    if (releaseTagEl) releaseTagEl.textContent = 'v1.2.3';
+    if (releaseTagEl) releaseTagEl.textContent = 'v1.2.4';
   }
 }
 

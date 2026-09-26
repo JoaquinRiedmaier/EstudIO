@@ -7,9 +7,7 @@ import { seleccionarRuta } from "./file";
 import { Editor, Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
-import { jsPDF } from "jspdf";
-// @ts-ignore
-import html2pdf from "html2pdf.js";
+import { generarPdfApunte } from "./exportarPdf";
 
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
@@ -95,6 +93,16 @@ interface Apunte {
   ult_modificacion: string;
   ruta: string;
   sincronizar_drive?: boolean;
+}
+
+interface GrabacionApunte {
+  codigo_grabacion: number;
+  codigo_apunte: number;
+  fecha_grabacion: string;
+  duracion_segundos: number;
+  ruta_audio: string;
+  estado_transcripcion: 'pendiente' | 'transcribiendo' | 'transcrito' | 'error';
+  error_mensaje?: string | null;
 }
 
 interface Evento {
@@ -216,6 +224,7 @@ const CustomPasteExtension = Extension.create({
 
 // DOM Elements
 document.addEventListener("DOMContentLoaded", () => {
+  setupSplashScreen(1200);
   setupNavigation();
   setupForms();
   setupCalendar();
@@ -233,6 +242,36 @@ document.addEventListener("DOMContentLoaded", () => {
   sincronizarApuntesAlInicio();
 });
 
+// ─── Splash Screen ─────────────────────────────────────────────────────────
+
+function setupSplashScreen(minDurationMs: number = 1200) {
+  const splash = document.getElementById("app-splash");
+  if (!splash) return;
+
+  const startTime = performance.now();
+
+  const dismissSplash = () => {
+    const elapsed = performance.now() - startTime;
+    const remaining = Math.max(0, minDurationMs - elapsed);
+
+    setTimeout(() => {
+      document.querySelector(".app-container")?.classList.remove("app-preload");
+      splash.classList.add("splash-hidden");
+      splash.setAttribute("aria-hidden", "true");
+      setTimeout(() => {
+        splash.remove();
+      }, 400);
+    }, remaining);
+  };
+
+  if (document.readyState === "complete") {
+    dismissSplash();
+  } else {
+    window.addEventListener("load", dismissSplash, { once: true });
+    setTimeout(dismissSplash, minDurationMs);
+  }
+}
+
 // ─── Settings & Welcome ────────────────────────────────────────────────────
 
 function abrirModal(id: string) {
@@ -247,6 +286,7 @@ function setupSettings() {
   // Abrir settings
   document.getElementById("btn-settings")?.addEventListener("click", () => {
     abrirModal("modal-settings");
+    cargarConfigGroq();
   });
 
   // Cerrar settings al hacer clic fuera del contenido
@@ -261,6 +301,103 @@ function setupSettings() {
     ?.addEventListener("click", () => {
       cerrarModal("modal-settings");
     });
+
+  // Toggle visibilidad de clave
+  document.getElementById("btn-groq-toggle-password")?.addEventListener("click", () => {
+    const input = document.getElementById("groq-api-key") as HTMLInputElement;
+    if (!input) return;
+    const btn = document.getElementById("btn-groq-toggle-password");
+    if (input.type === "password") {
+      input.type = "text";
+      if (btn) btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+    } else {
+      input.type = "password";
+      if (btn) btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    }
+  });
+
+  // Toggle secciones colapsables
+  document.getElementById("btn-toggle-drive")?.addEventListener("click", () => {
+    const body = document.getElementById("body-drive");
+    const header = document.getElementById("btn-toggle-drive");
+    if (body && header) {
+      body.classList.toggle("collapsed");
+      header.classList.toggle("collapsed");
+    }
+  });
+
+  document.getElementById("btn-toggle-groq")?.addEventListener("click", () => {
+    const body = document.getElementById("body-groq");
+    const header = document.getElementById("btn-toggle-groq");
+    if (body && header) {
+      body.classList.toggle("collapsed");
+      header.classList.toggle("collapsed");
+    }
+  });
+
+  // Al enfocar el campo, la máscara se borra para que escribir una clave nueva sea directo.
+  document.getElementById("groq-api-key")?.addEventListener("focus", (e) => {
+    const input = e.target as HTMLInputElement;
+    if (input.value.includes("•")) input.value = "";
+  });
+
+  // Probar y guardar clave Groq
+  document.getElementById("btn-groq-test-save")?.addEventListener("click", async () => {
+    const btn = document.getElementById("btn-groq-test-save") as HTMLButtonElement;
+    const statusEl = document.getElementById("settings-groq-status");
+    const apiKey = (document.getElementById("groq-api-key") as HTMLInputElement)?.value.trim();
+    const modelo = (document.getElementById("groq-model") as HTMLSelectElement)?.value || "whisper-large-v3-turbo";
+    const idioma = (document.getElementById("groq-idioma") as HTMLSelectElement)?.value ?? "es";
+
+    if (!apiKey) {
+      showToast("Ingresá tu API Key de Groq", "error");
+      return;
+    }
+
+    // El campo muestra la clave enmascarada al abrir los ajustes. Si sigue enmascarada, el
+    // usuario solo quiso cambiar el modelo: la clave guardada no se toca.
+    if (apiKey.includes("•")) {
+      try {
+        await invoke("guardar_groq_modelo", { modelo, idioma });
+        showToast("Configuración de transcripción actualizada", "success");
+      } catch (err: any) {
+        showToast(`Error guardando el modelo: ${err}`, "error");
+      }
+      return;
+    }
+
+    setButtonLoading(btn, true, "Probando…");
+    if (statusEl) statusEl.innerHTML = '<span class="groq-spinner"></span> Validando…';
+
+    try {
+      const esValida = await invoke<boolean>("validar_groq_api_key", { apiKey });
+      if (esValida) {
+        await invoke("guardar_groq_config", {
+          config: { api_key: apiKey, modelo, idioma },
+        });
+        if (statusEl) {
+          statusEl.textContent = "Conectado";
+          statusEl.className = "settings-value";
+        }
+        await cargarConfigGroq();
+        showToast("Configuración de Groq guardada con éxito", "success");
+      } else {
+        if (statusEl) {
+          statusEl.textContent = "Clave inválida";
+          statusEl.className = "settings-value";
+        }
+        showToast("API Key inválida o sin conexión", "error");
+      }
+    } catch (err: any) {
+      if (statusEl) {
+        statusEl.textContent = "Error";
+        statusEl.className = "settings-value";
+      }
+      showToast(`Error: ${err?.toString?.() ?? "Sin conexión"}`, "error");
+    } finally {
+      setButtonLoading(btn, false);
+    }
+  });
 
   // Desde settings → abrir atajos
   document.getElementById("btn-ver-atajos")?.addEventListener("click", () => {
@@ -294,6 +431,48 @@ function setupSettings() {
       openUrl(link.href).catch(console.error);
     }
   });
+}
+
+interface GroqConfigPublico {
+  configurado: boolean;
+  modelo: string;
+  idioma: string;
+  clave_enmascarada: string | null;
+}
+
+async function cargarConfigGroq() {
+  try {
+    // El backend nunca manda la clave en claro por IPC: solo el estado y su máscara.
+    const config = await invoke<GroqConfigPublico>("obtener_groq_config");
+    const statusEl = document.getElementById("settings-groq-status");
+    const input = document.getElementById("groq-api-key") as HTMLInputElement | null;
+
+    const select = document.getElementById("groq-model") as HTMLSelectElement | null;
+    if (select) select.value = config.modelo || "whisper-large-v3-turbo";
+
+    const selectIdioma = document.getElementById("groq-idioma") as HTMLSelectElement | null;
+    if (selectIdioma) selectIdioma.value = config.idioma ?? "es";
+
+    if (config.configurado) {
+      if (statusEl) {
+        statusEl.textContent = "Conectado";
+        statusEl.className = "settings-value";
+      }
+      if (input) input.value = config.clave_enmascarada ?? "";
+    } else {
+      if (statusEl) {
+        statusEl.textContent = "No configurado";
+        statusEl.className = "settings-value";
+      }
+      if (input) input.value = "";
+    }
+  } catch {
+    const statusEl = document.getElementById("settings-groq-status");
+    if (statusEl) {
+      statusEl.textContent = "No configurado";
+      statusEl.className = "settings-value";
+    }
+  }
 }
 
 function setupBienvenida() {
@@ -1101,6 +1280,18 @@ function setupEditor() {
   });
 
   btnGuardarCerrar?.addEventListener("click", async () => {
+    // Una grabación en curso no se descarta al salir por acá: se corta y se deja correr el
+    // pipeline entero —codificación a OGG, archivo junto al apunte y alta en la DB— antes de
+    // guardar y cerrar. Lo que sí descarta es el botón "Cancelar" del banner de grabación.
+    if (grabacionActiva) {
+      setButtonLoading(btnGuardarCerrar, true, "Cerrando grabación…");
+      try {
+        await detenerGrabacion(false);
+      } finally {
+        setButtonLoading(btnGuardarCerrar, false);
+      }
+    }
+
     const exito = await guardarApunteActual();
     if (exito) {
       if (currentEditSincronizarDrive && currentEditPath) {
@@ -1308,97 +1499,20 @@ function setupEditor() {
     `;
     document.body.appendChild(overlay);
 
-    let container: HTMLElement | null = null;
-
     try {
-      const editorEl = document.querySelector("#tiptap-editor .tiptap") as HTMLElement | null;
-      if (!editorEl) throw new Error("No se encontró el elemento del editor");
-
-      // 1. Clonar el contenido y convertir todas las imágenes a Base64
-      const clone = editorEl.cloneNode(true) as HTMLElement;
-      const imgOriginals = Array.from(editorEl.querySelectorAll("img")) as HTMLImageElement[];
-      const imgClones = Array.from(clone.querySelectorAll("img")) as HTMLImageElement[];
-
-      await Promise.all(
-        imgOriginals.map(async (origImg, i) => {
-          const cloneImg = imgClones[i];
-          if (!cloneImg) return;
-          try {
-            cloneImg.src = await imgToDataUrl(origImg.src);
-          } catch (e) {
-            console.warn("No se pudo convertir imagen a base64:", origImg.src, e);
-          }
-        })
-      );
-
-      // 2. Crear contenedor temporal A4 (ancho 750px) sin padding interno duplicado
-      container = document.createElement("div");
-      container.style.cssText = [
-        "position: absolute",
-        "top: 0",
-        "left: 0",
-        "width: 750px",
-        "background: #ffffff",
-        "color: #1a1a1a",
-        "font-family: 'Inter', system-ui, -apple-system, sans-serif",
-        "font-size: 11pt",
-        "line-height: 1.6",
-        "padding: 0px",
-        "margin: 0px",
-        "box-sizing: border-box",
-        "z-index: 999999",
-        "pointer-events: none",
-        "overflow: visible",
-      ].join("; ");
-
-      // Aplicar inline styles
-      inlineEditorStyles(clone);
-
-      container.appendChild(clone);
-      document.body.appendChild(container);
-
-      // Pequeña pausa para asegurar renderizado en el DOM
-      await new Promise((r) => setTimeout(r, 150));
-
       const pdfPath = currentEditPath.replace(/\.md$/i, ".pdf");
       const fileName = pdfPath.split(/[\/\\]/).pop() ?? "apunte.pdf";
+      const editorEl = document.querySelector("#tiptap-editor .tiptap") as HTMLElement | null;
 
-      // 3. Crear documento jsPDF en pt (A4 = 595.28 pt x 841.89 pt)
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: "a4",
-      });
-
-      // Márgenes de 20pt en los 4 bordes. Ancho útil = 595.28 - 40 = 555.28 pt
-      const marginPt = 20;
-      const printWidthPt = 595.28 - marginPt * 2;
-
-      await pdf.html(container, {
-        x: 0,
-        y: 0,
-        width: printWidthPt,
-        windowWidth: 750,
-        autoPaging: "text",
-        html2canvas: {
-          scale: 0.74, // 555.28 / 750
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: "#ffffff",
-          logging: false,
-        },
-        margin: [marginPt, marginPt, marginPt, marginPt],
-      });
-
-      // 4. Obtener string Base64 del PDF generado
-      const dataUri = pdf.output("datauristring");
-      const base64Content = dataUri.split(",")[1] || "";
-
+      const base64Content = await generarPdfApunte(
+        editorInstancia.getHTML(),
+        fileName.replace(/\.pdf$/i, ""),
+        editorEl
+      );
       if (!base64Content) {
         throw new Error("No se pudo generar el contenido Base64 del PDF");
       }
 
-      // 5. Guardar en disco vía Tauri IPC
       await invoke("guardar_pdf", { path: pdfPath, contentBase64: base64Content });
 
       showToast(`PDF guardado con éxito: ${fileName}`, "success");
@@ -1406,147 +1520,12 @@ function setupEditor() {
       console.error("Error al exportar PDF:", err);
       showToast(`Error al exportar PDF: ${err.message || err}`, "error");
     } finally {
-      if (container && document.body.contains(container)) {
-        document.body.removeChild(container);
-      }
       if (document.body.contains(overlay)) {
         document.body.removeChild(overlay);
       }
       btnExportarPdf.disabled = false;
     }
   });
-
-  /**
-   * Convierte cualquier URL de imagen a Data URL Base64 de forma infalible.
-   */
-  async function imgToDataUrl(src: string): Promise<string> {
-    if (!src) return src;
-    if (src.startsWith("data:")) return src;
-
-    try {
-      const response = await fetch(src);
-      const blob = await response.blob();
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(src);
-        reader.readAsDataURL(blob);
-      });
-    } catch {
-      return new Promise<string>((resolve) => {
-        const img = document.createElement("img") as HTMLImageElement;
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          try {
-            const canvas = document.createElement("canvas");
-            canvas.width = img.naturalWidth || img.width || 300;
-            canvas.height = img.naturalHeight || img.height || 150;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) { resolve(src); return; }
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL("image/png"));
-          } catch {
-            resolve(src);
-          }
-        };
-        img.onerror = () => resolve(src);
-        img.src = src;
-      });
-    }
-  }
-
-  /**
-   * Aplica inline styles a los elementos clonados para asegurar fidelidad estética en PDF
-   * e impedir que las imágenes o bloques desborden.
-   */
-  function inlineEditorStyles(root: HTMLElement): void {
-    const FONT = "'Inter', system-ui, -apple-system, sans-serif";
-    const COLOR_TEXT = "#2c2a29";
-    const COLOR_ACCENT = "#2c4c3b";
-
-    root.style.fontFamily = FONT;
-    root.style.fontSize = "11pt";
-    root.style.lineHeight = "1.6";
-    root.style.color = COLOR_TEXT;
-    root.style.background = "#ffffff";
-    root.style.margin = "0px";
-    root.style.padding = "0px";
-
-    // Eliminar margen superior del primer elemento hijo para evitar espacio en blanco inicial
-    const firstChild = root.firstElementChild as HTMLElement | null;
-    if (firstChild) {
-      firstChild.style.marginTop = "0px";
-    }
-
-    // Párrafos
-    root.querySelectorAll("p").forEach((el) => {
-      const h = el as HTMLElement;
-      h.style.cssText += `; margin: 0 0 0.6em 0; font-family: ${FONT}; font-size: 11pt; color: ${COLOR_TEXT}; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-
-    // Títulos
-    root.querySelectorAll("h1").forEach((el) => {
-      const h = el as HTMLElement;
-      h.style.cssText += `; font-family: ${FONT}; font-size: 20pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 1em 0 0.4em; line-height: 1.2; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-    root.querySelectorAll("h2").forEach((el) => {
-      const h = el as HTMLElement;
-      h.style.cssText += `; font-family: ${FONT}; font-size: 15pt; font-weight: 700; color: ${COLOR_ACCENT}; margin: 0.9em 0 0.35em; line-height: 1.25; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-    root.querySelectorAll("h3").forEach((el) => {
-      const h = el as HTMLElement;
-      h.style.cssText += `; font-family: ${FONT}; font-size: 12pt; font-weight: 700; color: ${COLOR_TEXT}; margin: 0.8em 0 0.3em; line-height: 1.3; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-
-    // Formato de texto
-    root.querySelectorAll("strong, b").forEach((el) => {
-      (el as HTMLElement).style.fontWeight = "700";
-    });
-    root.querySelectorAll("em, i").forEach((el) => {
-      (el as HTMLElement).style.fontStyle = "italic";
-    });
-    root.querySelectorAll("s, del").forEach((el) => {
-      (el as HTMLElement).style.textDecoration = "line-through";
-    });
-
-    // Resaltados (mark)
-    root.querySelectorAll("mark").forEach((el) => {
-      const markEl = el as HTMLElement;
-      const existingBg = markEl.style.backgroundColor;
-      const bg = existingBg && existingBg !== "" ? existingBg : "#fef08a";
-      markEl.style.cssText += `; background-color: ${bg} !important; color: ${COLOR_TEXT}; border-radius: 2px; padding: 0.1em 0.2em; display: inline; box-decoration-break: clone; -webkit-box-decoration-break: clone;`;
-    });
-
-    // Bloques de código
-    root.querySelectorAll("code").forEach((el) => {
-      const codeEl = el as HTMLElement;
-      if (codeEl.parentElement?.tagName !== "PRE") {
-        codeEl.style.cssText += "; background: #f0ede6; color: #c0392b; padding: 0.1em 0.3em; border-radius: 3px; font-family: monospace; font-size: 0.9em;";
-      }
-    });
-    root.querySelectorAll("pre").forEach((el) => {
-      (el as HTMLElement).style.cssText += "; background: #f5f2ec; border: 1px solid #dcd7c8; border-radius: 4px; padding: 0.8em 1em; white-space: pre-wrap; word-break: break-all; font-family: monospace; font-size: 9pt; margin: 0.6em 0; page-break-inside: avoid !important; break-inside: avoid !important;";
-    });
-
-    // Citas
-    root.querySelectorAll("blockquote").forEach((el) => {
-      (el as HTMLElement).style.cssText += `; border-left: 3px solid ${COLOR_ACCENT}; margin: 0.6em 0; padding: 0.3em 0.8em; color: #555555; background: #f9f8f4; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-
-    // Listas
-    root.querySelectorAll("ul, ol").forEach((el) => {
-      (el as HTMLElement).style.cssText += "; margin: 0.4em 0 0.4em 1.4em; padding: 0;";
-    });
-    root.querySelectorAll("li").forEach((el) => {
-      (el as HTMLElement).style.cssText += `; margin: 0.15em 0; font-family: ${FONT}; font-size: 11pt; page-break-inside: avoid !important; break-inside: avoid !important;`;
-    });
-
-    // Imágenes: Evitar cortes e impedir desbordamientos
-    root.querySelectorAll("img").forEach((el) => {
-      const imgEl = el as HTMLElement;
-      imgEl.style.cssText += "; max-width: 100% !important; height: auto !important; display: block; margin: 0.8em auto; page-break-inside: avoid !important; break-inside: avoid !important;";
-    });
-  }
 
   btnToggleSidebar?.addEventListener("click", () => {
     const container = document.querySelector(".app-container");
@@ -1780,7 +1759,18 @@ function updateToolbarActiveStates() {
 }
 
 function cerrarEditor() {
+  // Detener grabación si está activa
+  if (grabacionActiva) {
+    detenerGrabacion(true).catch(() => {});
+  }
+  // Limpiar lista de grabaciones y banner de pendientes
+  const listaGrab = document.getElementById('editor-audio-recordings-list');
+  if (listaGrab) listaGrab.innerHTML = '';
+  const bannerPend = document.getElementById('banner-audios-pendientes');
+  if (bannerPend) bannerPend.style.display = 'none';
+
   currentEditPath = "";
+
   currentEditCodigo = null;
   currentEditSincronizarDrive = false;
   actualizarToggleDriveUI(false);
@@ -2832,6 +2822,10 @@ async function abrirEditor(apunte: Apunte) {
     });
 
     cargarRecordatoriosHoy();
+    // Cargar grabaciones existentes del apunte
+    cargarGrabacionesApunte(apunte.codigo_apunte).catch((e) =>
+      console.warn('[audio] Error cargando grabaciones:', e)
+    );
   } catch (error: any) {
     console.error("Error al abrir apunte:", error);
     showToast(`Error al abrir apunte: ${error}`, "error");
@@ -3275,3 +3269,478 @@ async function abrirModalImportarDrive(materiaPreseleccionada: Materia | null) {
     showToast(`Error al consultar Google Drive: ${err}`, "error");
   }
 }
+
+// ─── Audio Recorder Module ────────────────────────────────────────────────
+//
+// La captura la hace el backend con cpal, hablando directamente con ALSA/PipeWire, WASAPI o
+// CoreAudio. El audio nunca pasa por el webview: acá solo quedan el cronómetro, el medidor
+// de nivel y los tres comandos que arrancan, cancelan y cierran la grabación.
+
+let grabacionActiva = false;
+let timerInterval: ReturnType<typeof setInterval> | null = null;
+let timerSegundos = 0;
+let nivelInterval: ReturnType<typeof setInterval> | null = null;
+
+interface InfoCaptura {
+  dispositivo: string;
+  canales: number;
+  sample_rate: number;
+}
+
+/** Por debajo de esto la señal es tan floja que la barra se muestra en rojo. */
+const PICO_BAJO_DBFS = -45;
+
+function formatTiempoGrabacion(seg: number): string {
+  const m = Math.floor(seg / 60).toString().padStart(2, '0');
+  const s = (seg % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function actualizarMedidorNivel(pico: number) {
+  const barra = document.getElementById('grabacion-nivel-barra');
+  if (!barra) return;
+
+  if (pico <= 0) {
+    barra.style.width = '0%';
+    return;
+  }
+
+  // Escala útil: de -60 dBFS (nada) a 0 dBFS (saturado). El valor no se muestra; la barra
+  // sola alcanza para ver de un vistazo si el micrófono está tomando.
+  const dbfs = 20 * Math.log10(pico);
+  barra.style.width = `${Math.max(0, Math.min(100, ((dbfs + 60) / 60) * 100))}%`;
+  barra.style.background =
+    dbfs < PICO_BAJO_DBFS ? '#ef4444' : dbfs < -30 ? '#f59e0b' : '#22c55e';
+}
+
+function reiniciarMedidorNivel() {
+  const barra = document.getElementById('grabacion-nivel-barra');
+  if (barra) barra.style.width = '0%';
+}
+
+function mostrarUiGrabacion(activa: boolean) {
+  const banner = document.getElementById('editor-grabacion-banner');
+  if (banner) banner.style.display = activa ? 'flex' : 'none';
+
+  const btnGrabar = document.getElementById('btn-editor-grabar-audio');
+  if (btnGrabar) btnGrabar.classList.toggle('grabando', activa);
+
+  const textBtn = document.getElementById('text-btn-grabar');
+  if (textBtn) textBtn.textContent = activa ? 'Grabando...' : 'Grabar';
+
+  if (!activa) {
+    const cronEl = document.getElementById('grabacion-cronometro');
+    if (cronEl) cronEl.textContent = '00:00 / 60:00';
+    reiniciarMedidorNivel();
+  }
+}
+
+async function iniciarGrabacion() {
+  if (grabacionActiva) return;
+  if (!currentEditCodigo || !currentEditPath) {
+    showToast('Abre un apunte antes de grabar.', 'error');
+    return;
+  }
+
+  let info: InfoCaptura;
+  try {
+    info = await invoke<InfoCaptura>('iniciar_captura_audio');
+  } catch (err: any) {
+    console.error('[audio] No se pudo abrir el micrófono:', err);
+    showToast(`Micrófono: ${err}`, 'error');
+    return;
+  }
+
+  console.log(
+    `[audio] Grabando desde "${info.dispositivo}" — ${info.canales} canal/es a ${info.sample_rate} Hz`
+  );
+
+  grabacionActiva = true;
+  timerSegundos = 0;
+  mostrarUiGrabacion(true);
+
+  // Medidor de nivel: el backend expone el pico del último bloque capturado.
+  nivelInterval = setInterval(async () => {
+    if (!grabacionActiva) return;
+    try {
+      actualizarMedidorNivel(await invoke<number>('nivel_captura_audio'));
+    } catch {
+      /* la grabación terminó entre medio */
+    }
+  }, 100);
+
+  const cronEl = document.getElementById('grabacion-cronometro');
+  const limite = 3600;
+  timerInterval = setInterval(() => {
+    timerSegundos++;
+    if (cronEl) {
+      cronEl.textContent = `${formatTiempoGrabacion(timerSegundos)} / ${formatTiempoGrabacion(limite)}`;
+    }
+    if (timerSegundos >= limite) {
+      showToast('Se alcanzó el límite máximo de 1 hora de grabación.', 'warning' as any);
+      detenerGrabacion(false).catch(console.error);
+    }
+  }, 1000);
+}
+
+/**
+ * Corta la captura en curso.
+ *
+ * Con `cancelar` en false se recorre el pipeline entero: se suelta el dispositivo, el PCM se
+ * codifica a OGG en un hilo de trabajo, el archivo queda junto al apunte y la grabación se
+ * registra en la DB. Devuelve si la grabación terminó guardada, para que quien cierre el
+ * editor sepa si puede seguir.
+ */
+async function detenerGrabacion(cancelar: boolean): Promise<boolean> {
+  if (!grabacionActiva) return false;
+  grabacionActiva = false;
+
+  for (const intervalo of [timerInterval, nivelInterval]) {
+    if (intervalo) clearInterval(intervalo);
+  }
+  timerInterval = null;
+  nivelInterval = null;
+  timerSegundos = 0;
+
+  mostrarUiGrabacion(false);
+
+  if (cancelar) {
+    try {
+      await invoke('cancelar_captura_audio');
+    } catch (err) {
+      console.warn('[audio] Error cancelando la grabación:', err);
+    }
+    return false;
+  }
+
+  if (currentEditCodigo === null || !currentEditPath) {
+    showToast('No hay un apunte abierto donde guardar la grabación.', 'error');
+    await invoke('cancelar_captura_audio').catch(() => {});
+    return false;
+  }
+
+  // Tarjeta temporal mientras el hilo de trabajo codifica el OGG.
+  const lista = document.getElementById('editor-audio-recordings-list');
+  const placeholder = document.createElement('div');
+  placeholder.className = 'recording-card processing';
+  placeholder.innerHTML = `
+    <div class="recording-card-header" style="opacity: 0.85;">
+      <svg class="icon-spin" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+      </svg>
+      <span class="recording-card-fecha" style="font-size:0.8rem; font-weight:normal;">Guardando y optimizando audio en OGG...</span>
+      <span class="recording-badge transcribiendo">Procesando</span>
+    </div>
+  `;
+  if (lista) lista.insertBefore(placeholder, lista.firstChild);
+
+  try {
+    const grabacion = await invoke<GrabacionApunte>('detener_captura_audio', {
+      codigoApunte: currentEditCodigo,
+      rutaApunte: currentEditPath,
+    });
+
+    placeholder.remove();
+
+    if (lista) {
+      lista.insertBefore(crearTarjetaGrabacion(grabacion), lista.firstChild);
+    }
+
+    const pendientesRestantes = document.querySelectorAll(
+      '#editor-audio-recordings-list .recording-card:not(.processing)'
+    ).length;
+    actualizarBannerPendientes(pendientesRestantes);
+
+    showToast('Grabación guardada correctamente.', 'success');
+    return true;
+  } catch (err: any) {
+    placeholder.remove();
+    console.error('[audio] Error guardando la grabación:', err);
+    showToast(`${err}`, 'error');
+    return false;
+  }
+}
+
+function formatDuracion(seg: number): string {
+  if (seg < 60) return `${seg}s`;
+  const m = Math.floor(seg / 60);
+  const s = seg % 60;
+  return s > 0 ? `${m}:${s.toString().padStart(2,'0')} min` : `${m} min`;
+}
+
+function badgeHtml(estado: GrabacionApunte['estado_transcripcion']): string {
+  const map: Record<string, string> = {
+    pendiente:      'Pendiente',
+    transcribiendo: 'Transcribiendo',
+    transcrito:     'Transcrito',
+    error:          'Error',
+  };
+  return `<span class="recording-badge ${estado}">${map[estado] ?? estado}</span>`;
+}
+
+function actualizarBannerPendientes(cantidad: number) {
+  const banner = document.getElementById('banner-audios-pendientes');
+  const texto = document.getElementById('texto-audios-pendientes');
+  if (!banner || !texto) return;
+
+  if (cantidad > 0) {
+    texto.textContent = cantidad === 1
+      ? 'Hay 1 grabación pendiente de transcripción en este apunte.'
+      : `Hay ${cantidad} grabaciones pendientes de transcripción en este apunte.`;
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+async function anexarTextoTranscripcion(texto: string, fecha: string) {
+  if (!editorInstancia) {
+    console.error('[audio] editorInstancia es null, no se pudo anexar la transcripción');
+    return;
+  }
+
+  let fechaHeader = fecha;
+  const partes = fecha.match(/(\d{4})\/(\d{2})\/(\d{2}) (\d{2}:\d{2})/);
+  if (partes) fechaHeader = `${partes[3]}/${partes[2]}/${partes[1]} ${partes[4]}`;
+
+  // El texto lo produce un tercero (Whisper), así que se inserta como nodos de texto plano.
+  // Pasarlo por el parser de Markdown a HTML dejaba que lo transcrito se interpretara como
+  // marcado dentro del apunte.
+  const parrafos = texto
+    .trim()
+    .split(/\n+/)
+    .map((linea) => linea.trim())
+    .filter((linea) => linea.length > 0)
+    .map((linea) => ({ type: 'paragraph', content: [{ type: 'text', text: linea }] }));
+
+  editorInstancia
+    .chain()
+    .focus('end')
+    .insertContent([
+      { type: 'horizontalRule' },
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', marks: [{ type: 'bold' }], text: `Transcripción (${fechaHeader})` },
+        ],
+      },
+      ...(parrafos.length > 0 ? parrafos : [{ type: 'paragraph' }]),
+    ])
+    .run();
+}
+
+function crearTarjetaGrabacion(g: GrabacionApunte): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'recording-card';
+  card.dataset.codigoGrabacion = String(g.codigo_grabacion);
+
+  // Formatear fecha: "YYYY/MM/DD HH:mm:ss" → "DD/MM/YYYY HH:mm"
+  let fechaDisplay = g.fecha_grabacion;
+  const partes = g.fecha_grabacion.match(/(\d{4})\/(\d{2})\/(\d{2}) (\d{2}:\d{2})/);
+  if (partes) fechaDisplay = `${partes[3]}/${partes[2]}/${partes[1]} ${partes[4]}`;
+
+  const esTranscrito = g.estado_transcripcion === 'transcrito';
+  const botonTranscribirHtml = !esTranscrito
+    ? `<button class="recording-btn-transcribir" title="Transcribir con Groq Whisper" data-codigo="${g.codigo_grabacion}">Transcribir</button>`
+    : '';
+
+  card.innerHTML = `
+    <div class="recording-card-header">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+      </svg>
+      <span class="recording-card-fecha">${fechaDisplay}</span>
+      <span class="recording-card-duracion">${formatDuracion(g.duracion_segundos)}</span>
+      ${badgeHtml(g.estado_transcripcion)}
+      ${botonTranscribirHtml}
+      <button class="recording-btn-eliminar" title="Eliminar grabación" data-codigo="${g.codigo_grabacion}" aria-label="Eliminar grabación">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+      </button>
+    </div>
+    ${g.error_mensaje ? `<span class="recording-card-error" style="font-size:0.75rem; color:var(--error); margin-top:0.2rem;">${g.error_mensaje}</span>` : ''}
+  `;
+
+  // Evento transcribir con Groq Whisper
+  const btnTranscribir = card.querySelector<HTMLButtonElement>('.recording-btn-transcribir');
+  btnTranscribir?.addEventListener('click', async () => {
+    btnTranscribir.disabled = true;
+    btnTranscribir.textContent = 'Transcribiendo...';
+
+    const badgeEl = card.querySelector('.recording-badge');
+    if (badgeEl) {
+      badgeEl.className = 'recording-badge transcribiendo';
+      badgeEl.textContent = 'Transcribiendo';
+    }
+
+    try {
+      const resp = await invoke<{ codigo_grabacion: number; texto: string; fecha_grabacion: string }>(
+        'transcribir_grabacion_groq',
+        { codigoGrabacion: g.codigo_grabacion }
+      );
+
+      // Anexar texto al final del apunte en TipTap
+      await anexarTextoTranscripcion(resp.texto, resp.fecha_grabacion);
+
+      // Al transcribirse con éxito, el audio ya fue borrado en backend y desaparece del apunte
+      card.remove();
+      const pendientesRestantes = document.querySelectorAll('#editor-audio-recordings-list .recording-card:not(.processing)').length;
+      actualizarBannerPendientes(pendientesRestantes);
+
+      showToast('Audio transcrito y agregado al apunte.', 'success');
+    } catch (err: any) {
+      console.error('[audio] Error en transcripción Groq:', err);
+      g.estado_transcripcion = 'error';
+      if (badgeEl) {
+        badgeEl.className = 'recording-badge error';
+        badgeEl.textContent = 'Error';
+      }
+      btnTranscribir.disabled = false;
+      btnTranscribir.textContent = 'Reintentar';
+
+      let errEl = card.querySelector('.recording-card-error') as HTMLElement;
+      if (!errEl) {
+        errEl = document.createElement('span');
+        errEl.className = 'recording-card-error';
+        errEl.style.cssText = 'font-size:0.75rem; color:var(--error); margin-top:0.2rem;';
+        card.appendChild(errEl);
+      }
+      errEl.textContent = String(err);
+
+      showToast(`Error de transcripción: ${err}`, 'error');
+    }
+  });
+
+  // Evento eliminar
+  const btnEliminar = card.querySelector<HTMLButtonElement>('.recording-btn-eliminar');
+  btnEliminar?.addEventListener('click', async () => {
+    const confirma = await confirm(`¿Eliminar esta grabación? Esta acción no se puede deshacer.`);
+    if (!confirma) return;
+    try {
+      await invoke('eliminar_grabacion', { codigoGrabacion: g.codigo_grabacion });
+      card.remove();
+      const pendientesRestantes = document.querySelectorAll('#editor-audio-recordings-list .recording-card:not(.processing)').length;
+      actualizarBannerPendientes(pendientesRestantes);
+      showToast('Grabación eliminada.', 'success');
+    } catch (err: any) {
+      showToast(`Error eliminando grabación: ${err}`, 'error');
+    }
+  });
+
+  return card;
+}
+
+async function cargarGrabacionesApunte(codigoApunte: number) {
+  const lista = document.getElementById('editor-audio-recordings-list');
+  if (!lista) return;
+  lista.innerHTML = '';
+
+  try {
+    const grabaciones = await invoke<GrabacionApunte[]>('obtener_grabaciones_apunte', {
+      codigoApunte,
+    });
+    grabaciones.forEach((g) => {
+      lista.appendChild(crearTarjetaGrabacion(g));
+    });
+    actualizarBannerPendientes(grabaciones.length);
+  } catch (err) {
+    console.warn('[audio] Error cargando grabaciones:', err);
+    actualizarBannerPendientes(0);
+  }
+}
+
+// Botón "Transcribir pendientes" en el banner superior
+document.getElementById('btn-transcribir-todos-pendientes')?.addEventListener('click', async () => {
+  const btnBanner = document.getElementById('btn-transcribir-todos-pendientes') as HTMLButtonElement | null;
+  if (!currentEditCodigo) return;
+
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('#editor-audio-recordings-list .recording-card:not(.processing)'));
+  if (cards.length === 0) return;
+
+  if (btnBanner) {
+    btnBanner.disabled = true;
+    btnBanner.textContent = 'Transcribiendo pendientes...';
+  }
+
+  let procesados = 0;
+  for (const card of cards) {
+    const cod = Number(card.dataset.codigoGrabacion);
+    if (!cod) continue;
+
+    const btnTranscribir = card.querySelector<HTMLButtonElement>('.recording-btn-transcribir');
+    if (btnTranscribir) {
+      btnTranscribir.disabled = true;
+      btnTranscribir.textContent = 'Transcribiendo...';
+    }
+
+    const badgeEl = card.querySelector('.recording-badge');
+    if (badgeEl) {
+      badgeEl.className = 'recording-badge transcribiendo';
+      badgeEl.textContent = 'Transcribiendo';
+    }
+
+    try {
+      const resp = await invoke<{ codigo_grabacion: number; texto: string; fecha_grabacion: string }>(
+        'transcribir_grabacion_groq',
+        { codigoGrabacion: cod }
+      );
+      await anexarTextoTranscripcion(resp.texto, resp.fecha_grabacion);
+      card.remove();
+      procesados++;
+    } catch (err: any) {
+      console.error(`[audio] Error transcribiendo grabación #${cod}:`, err);
+      if (badgeEl) {
+        badgeEl.className = 'recording-badge error';
+        badgeEl.textContent = 'Error';
+      }
+      if (btnTranscribir) {
+        btnTranscribir.disabled = false;
+        btnTranscribir.textContent = 'Reintentar';
+      }
+      let errEl = card.querySelector('.recording-card-error') as HTMLElement;
+      if (!errEl) {
+        errEl = document.createElement('span');
+        errEl.className = 'recording-card-error';
+        errEl.style.cssText = 'font-size:0.75rem; color:var(--error); margin-top:0.2rem;';
+        card.appendChild(errEl);
+      }
+      errEl.textContent = String(err);
+    }
+  }
+
+  const pendientesRestantes = document.querySelectorAll('#editor-audio-recordings-list .recording-card:not(.processing)').length;
+  actualizarBannerPendientes(pendientesRestantes);
+
+  if (btnBanner) {
+    btnBanner.disabled = false;
+    btnBanner.textContent = 'Transcribir pendientes';
+  }
+
+  if (procesados > 0) {
+    showToast(
+      procesados === 1 ? 'Se transcribió 1 grabación pendiente.' : `Se transcribieron ${procesados} grabaciones pendientes.`,
+      'success'
+    );
+  }
+});
+
+// Event listeners para grabación
+document.getElementById('btn-editor-grabar-audio')?.addEventListener('click', () => {
+  if (grabacionActiva) {
+    detenerGrabacion(false).catch(console.error);
+  } else {
+    iniciarGrabacion().catch(console.error);
+  }
+});
+
+document.getElementById('btn-grabacion-detener')?.addEventListener('click', () => {
+  detenerGrabacion(false).catch(console.error);
+});
+
+document.getElementById('btn-grabacion-cancelar')?.addEventListener('click', () => {
+  detenerGrabacion(true).catch(console.error);
+});
+
