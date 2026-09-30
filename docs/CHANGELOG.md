@@ -1,3 +1,6 @@
+# Version 1.3.6 (2026-09-30)
+- **FIX:** Linux: en algunas distribuciones actualizadas (como CachyOS, Arch o Fedora), la versión AppImage descargada desde GitHub no abría: se cerraba sola o quedaba la pantalla en blanco. Ya está corregido y ahora abre normalmente.
+
 # Version 1.3.5 (2026-09-24)
 - **Nueva Funcionalidad:** Transcribir: agregamos dictado por voz con transcripción automática al final del apunte activo. El feature incluye soporte offline: los audios se cachean localmente por apunte y el procesamiento del texto se encola hasta recuperar la conexión a internet, asegurando la persistencia de datos sin depender de estar siempre online. Para activar esta funcionalidad tenes que cargar tu propia API KEY en configuraciones. Registrate y creala aca --> https://groq.com/
 - **FIX:** Arrglamos el generador de PDF, podría darte problemas en el pasado pero ahora lo pulimos para que te proporcione mejores PDFs.

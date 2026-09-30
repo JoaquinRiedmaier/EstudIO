@@ -58,6 +58,25 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install
 
+      # Tauri descarga un linuxdeploy de 2024 que mete libwayland-client dentro de la AppImage,
+      # y eso rompe el Mesa del sistema en distros nuevas (EGL_BAD_PARAMETER).
+      # Si el archivo ya está en ~/.cache/tauri, Tauri no lo descarga y usa este.
+      # Ver docs/diagnostico-linux-egl-webkit.md
+      - name: linuxdeploy nuevo (no bundlea libwayland-client)
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64)  SHA=c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d ;;
+            aarch64) SHA=620095110d693282b8ebeb244a95b5e911cf8f65f76c88b4b47d16ae6346fcff ;;
+            *) echo "::error::Arquitectura no soportada: $ARCH"; exit 1 ;;
+          esac
+          mkdir -p ~/.cache/tauri
+          F=~/.cache/tauri/linuxdeploy-$ARCH.AppImage
+          curl -fsSL -o "$F" "https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-$ARCH.AppImage"
+          echo "$SHA  $F" | sha256sum -c -
+          chmod +x "$F"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,3 +92,16 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+      # tauri-action compila y publica en el mismo paso: esto no frena el release, pero avisa.
+      - name: verificar que la AppImage no traiga libwayland-client
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          APPIMAGE=$(ls "$GITHUB_WORKSPACE"/src-tauri/target/release/bundle/appimage/*.AppImage | head -1)
+          cd "$RUNNER_TEMP"
+          "$APPIMAGE" --appimage-extract >/dev/null
+          if find squashfs-root -name 'libwayland-client.so*' | grep -q .; then
+            echo "::error::La AppImage trae libwayland-client: va a fallar con EGL_BAD_PARAMETER en distros nuevas"
+            exit 1
+          fi
+          echo "OK: la AppImage no trae libwayland-client"
