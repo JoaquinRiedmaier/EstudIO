@@ -2006,7 +2006,7 @@ async function cargarMaterias() {
       container.innerHTML = `
         <div style="text-align:center; padding: 3rem; color:var(--text-secondary); width: 100%; grid-column: 1/-1;">
           <p style="margin-bottom: 1.5rem; font-size: 1.1rem;">No tenes materias registradas aún.</p>
-          <button class="btn-primary" onclick="document.querySelector('[data-target=\\'view-nueva-materia\\']')?.click()" style="margin: 0 auto;">
+          <button class="btn-primary" id="btn-empty-nueva-materia" style="margin: 0 auto;">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M5 12h14"/><path d="M12 5v14"/>
             </svg>
@@ -2014,6 +2014,14 @@ async function cargarMaterias() {
           </button>
         </div>
       `;
+      // La CSP (script-src 'self') bloquea los onclick inline: el listener se agrega desde acá.
+      document
+        .getElementById("btn-empty-nueva-materia")
+        ?.addEventListener("click", () => {
+          document
+            .querySelector<HTMLElement>(".nav-btn[data-target='view-nueva-materia']")
+            ?.click();
+        });
       return;
     }
 

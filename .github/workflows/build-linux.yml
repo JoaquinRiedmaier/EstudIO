@@ -1,0 +1,93 @@
+name: "Build Linux (Manual)"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    # x86_64: sirve para cualquier PC con procesador Intel o AMD.
+    # ubuntu-22.04 a propósito: la glibc más vieja hace que el binario corra en más distros.
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libssl-dev
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      # Tauri descarga un linuxdeploy de 2024 que mete libwayland-client dentro de la AppImage,
+      # y eso rompe el Mesa del sistema en distros nuevas (EGL_BAD_PARAMETER).
+      # Si el archivo ya está en ~/.cache/tauri, Tauri no lo descarga y usa este.
+      # Ver docs/diagnostico-linux-egl-webkit.md
+      - name: linuxdeploy nuevo (no bundlea libwayland-client)
+        run: |
+          SHA=c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d
+          mkdir -p ~/.cache/tauri
+          F=~/.cache/tauri/linuxdeploy-x86_64.AppImage
+          curl -fsSL -o "$F" "https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage"
+          echo "$SHA  $F" | sha256sum -c -
+          chmod +x "$F"
+
+      - name: Build Tauri App for Linux
+        run: pnpm tauri build --bundles appimage,deb,rpm
+        env:
+          NO_STRIP: true
+          ESTUDIO_GOOGLE_CLIENT_ID: ${{ secrets.ESTUDIO_GOOGLE_CLIENT_ID }}
+          ESTUDIO_GOOGLE_CLIENT_SECRET: ${{ secrets.ESTUDIO_GOOGLE_CLIENT_SECRET }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Verificar que la AppImage no traiga libwayland-client
+        run: |
+          APPIMAGE=$(ls "$GITHUB_WORKSPACE"/src-tauri/target/release/bundle/appimage/*.AppImage | head -1)
+          cd "$RUNNER_TEMP"
+          "$APPIMAGE" --appimage-extract >/dev/null
+          if find squashfs-root -name 'libwayland-client.so*' | grep -q .; then
+            echo "::error::La AppImage trae libwayland-client: va a fallar con EGL_BAD_PARAMETER en distros nuevas"
+            exit 1
+          fi
+          echo "OK: la AppImage no trae libwayland-client"
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+
+      - name: Upload deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+      - name: Upload rpm
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-rpm
+          path: src-tauri/target/release/bundle/rpm/*.rpm
+          if-no-files-found: error
