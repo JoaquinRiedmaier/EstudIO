@@ -22,6 +22,10 @@ import TurndownService from "turndown";
 // @ts-ignore
 import { gfm } from "turndown-plugin-gfm";
 import { initUpdater } from "./updater";
+import { initTheme } from "./theme";
+
+// Aplicar tema (claro/oscuro/sistema) y conectar los toggles
+initTheme();
 
 // Inicializar el listener de actualizaciones (responde al evento emitido por Rust)
 initUpdater().catch((e) => console.error("[updater] No se pudo inicializar:", e));
@@ -2083,7 +2087,7 @@ async function cargarMaterias() {
       btnBorrarMateria.className = "btn-secondary";
       btnBorrarMateria.style.padding = "0.4rem";
       btnBorrarMateria.style.color = "var(--error)";
-      btnBorrarMateria.style.borderColor = "rgba(255, 99, 132, 0.3)";
+      btnBorrarMateria.style.borderColor = "var(--error-border)";
       btnBorrarMateria.title = "Borrar Materia";
       btnBorrarMateria.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -2189,7 +2193,7 @@ async function abrirModalVerApuntes(mat: Materia) {
       const btnBorrar = document.createElement("button");
       btnBorrar.className = "btn-secondary";
       btnBorrar.style.cssText =
-        "padding: 0.3rem; font-size: 0.8rem; width: fit-content; color: var(--error); border-color: rgba(255, 99, 132, 0.3);";
+        "padding: 0.3rem; font-size: 0.8rem; width: fit-content; color: var(--error); border-color: var(--error-border);";
       btnBorrar.title = "Borrar Apunte";
       btnBorrar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`;
       btnBorrar.onclick = async (e) => {
@@ -2310,7 +2314,7 @@ async function cargarRecordatorios(fechaFiltro?: string) {
       const btnBorrar = document.createElement("button");
       btnBorrar.className = "btn-secondary";
       btnBorrar.style.cssText =
-        "padding: 0.3rem; font-size: 0.8rem; width: fit-content; color: var(--error); border-color: rgba(255, 99, 132, 0.3);";
+        "padding: 0.3rem; font-size: 0.8rem; width: fit-content; color: var(--error); border-color: var(--error-border);";
       btnBorrar.title = "Borrar Recordatorio";
       btnBorrar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Borrar`;
       btnBorrar.onclick = async (e) => {

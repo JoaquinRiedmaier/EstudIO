@@ -3,6 +3,19 @@
 
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // Anti-FOUC: aplica el tema antes del primer paint.
+    // Debe mantenerse sincronizado con la lógica de src/theme.ts.
+    try {
+      var t = localStorage.getItem("estudio.theme");
+      if (t !== "light" && t !== "dark") {
+        t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.dataset.theme = t;
+    } catch (e) {
+      document.documentElement.dataset.theme = "light";
+    }
+  </script>
   <link rel="stylesheet" href="/src/styles.css" />
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
@@ -457,7 +470,7 @@
               </div>
             </div>
             <!-- Banner de Grabación Activa -->
-            <div id="editor-grabacion-banner" style="display: none; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; background: rgba(220,38,38,0.12); border: 1px solid rgba(220,38,38,0.35); border-radius: 6px; font-size: 0.85rem;">
+            <div id="editor-grabacion-banner" style="display: none; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; background: var(--danger-badge-bg); border: 1px solid var(--danger-badge-border); border-radius: 6px; font-size: 0.85rem;">
               <span class="grabacion-dot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; flex-shrink: 0;"></span>
               <span style="color: #ef4444; font-weight: 600;">Grabando...</span>
               <span id="grabacion-cronometro" style="font-family: var(--font-mono, monospace); color: var(--text-secondary); min-width: 110px;">00:00 / 60:00</span>
@@ -476,12 +489,12 @@
             <!-- Banner de Audios Pendientes de Transcripción -->
             <div id="banner-audios-pendientes" class="banner-audios-pendientes" style="display: none;">
               <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #b45309; flex-shrink: 0;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--warn-badge-text); flex-shrink: 0;">
                   <circle cx="12" cy="12" r="10"/>
                   <line x1="12" y1="8" x2="12" y2="12"/>
                   <line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                <span id="texto-audios-pendientes" style="font-size: 0.83rem; color: #92400e; font-weight: 500;">Hay grabaciones pendientes de transcripción.</span>
+                <span id="texto-audios-pendientes" style="font-size: 0.83rem; color: var(--warn-deep); font-weight: 500;">Hay grabaciones pendientes de transcripción.</span>
               </div>
               <button id="btn-transcribir-todos-pendientes" class="btn-primary" style="margin-top:0; padding: 0.3rem 0.75rem; font-size: 0.8rem; width: auto; white-space: nowrap;">
                 Transcribir pendientes
@@ -675,7 +688,7 @@
             <div id="editor-audio-recordings-list" style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0; margin: 0;"></div>
             <!-- Tiptap Editor Container -->
             <div id="tiptap-editor"
-              style="flex: 1; min-height: 150px; border: 1px solid var(--panel-border); border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; display: flex; flex-direction: column; overflow: hidden; background: #ffffff;">
+              style="flex: 1; min-height: 150px; border: 1px solid var(--panel-border); border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-document);">
             </div>
           </div>
         </section>
@@ -870,6 +883,54 @@
           </svg>
         </button>
       </div>
+
+      <!-- Apariencia -->
+      <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:0.8rem; margin-bottom:0.6rem;">
+        <div class="settings-label">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+            <path d="M2 12h20" />
+          </svg>
+          Apariencia
+        </div>
+        <div class="appearance-options">
+          <button type="button" class="appearance-option" data-appearance="system"
+            title="Cambia automáticamente según el tema del sistema">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="14" height="8" x="5" y="2" rx="2" />
+              <rect width="20" height="8" x="2" y="14" rx="2" />
+            </svg>
+            Sistema
+          </button>
+          <button type="button" class="appearance-option" data-appearance="light" title="Siempre claro">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2" />
+              <path d="M12 20v2" />
+              <path d="m4.93 4.93 1.41 1.41" />
+              <path d="m17.66 17.66 1.41 1.41" />
+              <path d="M2 12h2" />
+              <path d="M20 12h2" />
+              <path d="m6.34 17.66-1.41 1.41" />
+              <path d="m19.07 4.93-1.41 1.41" />
+            </svg>
+            Claro
+          </button>
+          <button type="button" class="appearance-option" data-appearance="dark" title="Siempre oscuro">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+            Oscuro
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
 
       <!-- Versión -->
       <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:0.8rem;">
@@ -1182,7 +1243,7 @@
         No se encontraron archivos de apuntes (.zip) en Google Drive.
       </div>
 
-      <div id="drive-files-list" class="drive-files-container" style="overflow-y:auto; max-height:180px; margin-bottom:1.1rem; border:1px solid var(--panel-border); border-radius:8px; padding:0.4rem; background:#fcfbf9;">
+      <div id="drive-files-list" class="drive-files-container" style="overflow-y:auto; max-height:180px; margin-bottom:1.1rem; border:1px solid var(--panel-border); border-radius:8px; padding:0.4rem; background:var(--bg-inset);">
         <!-- Populated via TS -->
       </div>
 
@@ -1190,7 +1251,7 @@
       <div class="modern-form" style="display:flex; flex-direction:column; gap:0.8rem;">
         <div class="form-group" style="margin-bottom:0;">
           <label for="drive-import-materia" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; color:var(--text-secondary);">Materia destino</label>
-          <select id="drive-import-materia" class="form-control" style="width:100%; padding:0.5rem 0.75rem; border-radius:6px; background:#ffffff; color:var(--text-primary); border:1px solid var(--panel-border); font-size:0.88rem; outline:none; height:38px; box-sizing:border-box;">
+          <select id="drive-import-materia" class="form-control" style="width:100%; padding:0.5rem 0.75rem; border-radius:6px; background:var(--bg-document); color:var(--text-primary); border:1px solid var(--panel-border); font-size:0.88rem; outline:none; height:38px; box-sizing:border-box;">
             <!-- Populated via TS -->
           </select>
         </div>
@@ -1198,7 +1259,7 @@
         <div class="form-group" style="margin-bottom:0;">
           <label for="drive-import-ruta" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; color:var(--text-secondary);">Carpeta local donde guardar</label>
           <div class="file-input-group">
-            <input type="text" id="drive-import-ruta" class="form-control" placeholder="/ruta/donde/guardar..." style="font-size:0.88rem; padding:0.5rem 0.75rem; border:1px solid var(--panel-border); border-radius:6px; background:#ffffff; color:var(--text-primary); outline:none; height:38px; box-sizing:border-box;" />
+            <input type="text" id="drive-import-ruta" class="form-control" placeholder="/ruta/donde/guardar..." style="font-size:0.88rem; padding:0.5rem 0.75rem; border:1px solid var(--panel-border); border-radius:6px; background:var(--bg-document); color:var(--text-primary); outline:none; height:38px; box-sizing:border-box;" />
             <button type="button" id="btn-drive-select-ruta" class="btn-secondary btn-compact" style="height:38px; margin:0; display:inline-flex; align-items:center; gap:0.4rem;" title="Seleccionar carpeta local">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3A2 2 0 0 0 6.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
