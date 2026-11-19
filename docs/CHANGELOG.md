@@ -1,3 +1,6 @@
+# Version 1.4.7 (2026-11-18)
+- **FIX:** Se corrigió el botón "Cargar Nueva Materia" que no respondía cuando se comenzaba desde cero (sin materias registradas).
+
 # Version 1.4.6 (2026-11-01)
 - **Nueva Funcionalidad:** Modo nocturno rediseñado con estética de escritorio clásico. Los fondos ahora usan un verde pizarra profundo (#1e221f) y un asfalto cálido (#242825) en lugar del negro o gris oscuro tradicional, simulando el ambiente de una biblioteca de noche. El panel lateral y las tarjetas de materias se diferencian con un tono apenas más claro (#2a2f2b) y bordes verdes grisáceos sutiles, sin sombras proyectadas. El texto principal cambió a un color pergamino/crema suave (#dcd8cf) para reducir la fatiga visual en sesiones de estudio prolongadas. El acento pasó de un salvia iluminado a un verde musgo/salvia mate (#4a6b58), evocando el cuero verde de un escritorio antiguo. Dentro del editor Tiptap, el código inline usa terracota suave, los resaltados mostaza viejo translúcido y las citas un fondo musgo muy sutil, manteniendo la información importante legible dentro de la estética apagada y cuidada.
 
