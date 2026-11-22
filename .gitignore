@@ -29,7 +29,7 @@ mi_DB.db3
 .agents/skills/agent-browser
 skills-lock.json
 recordatorio_release.txt
-plan/
+
 docs/functionalities_103.md
 .env
 docs/analisis_transcripcion_whisper.md
