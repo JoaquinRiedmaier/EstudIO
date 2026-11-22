@@ -1,3 +1,6 @@
+# Version 1.4.8 (2026-11-22)
+- **FIX:** Indentación en el editor (TipTap + persistencia Markdown): Tab dentro de listas anida/desanida el elemento con nodos reales (sobrevive al guardar como Markdown); fuera de una lista, Tab ya no inserta un tabulador de texto que se perdía al guardar (no-op). Ajustado `tab-size: 4` en el editor.
+
 # Version 1.4.7 (2026-11-18)
 - **FIX:** Se corrigió el botón "Cargar Nueva Materia" que no respondía cuando se comenzaba desde cero (sin materias registradas).
 

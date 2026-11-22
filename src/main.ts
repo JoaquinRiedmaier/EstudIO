@@ -51,30 +51,21 @@ const TabExtension = Extension.create({
   addKeyboardShortcuts() {
     return {
       Tab: () => {
-        // Inserta un tabulador real
-        return this.editor.commands.insertContent('\t');
+        // Listas: anidar nivel con nodos reales (sobrevive al guardar como Markdown)
+        if (this.editor.can().sinkListItem('listItem')) {
+          return this.editor.commands.sinkListItem('listItem');
+        }
+        // Fuera de lista: NO insertar tab de texto (se pierde al guardar).
+        // Accion posible pero no-op para no romper la aplicacion.
+        return true;
       },
       'Shift-Tab': () => {
-        return this.editor.commands.command(({ tr, state, dispatch }) => {
-          const { $from, empty } = state.selection;
-
-          if (empty) {
-            // Obtener el texto justo antes del cursor (1 caracter)
-            const textBefore = $from.parent.textBetween(
-              Math.max(0, $from.parentOffset - 1),
-              $from.parentOffset
-            );
-
-            // Si es un tabulador, lo borramos
-            if (textBefore === '\t') {
-              if (dispatch) {
-                tr.delete($from.pos - 1, $from.pos);
-              }
-              return true;
-            }
-          }
-          return false;
-        });
+        // Listas: subir nivel con nodos reales
+        if (this.editor.can().liftListItem('listItem')) {
+          return this.editor.commands.liftListItem('listItem');
+        }
+        // Fuera de lista: no-op
+        return true;
       },
     };
   },

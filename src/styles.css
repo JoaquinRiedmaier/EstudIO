@@ -1519,6 +1519,7 @@ input:checked+.slider:before {
   font-size: 1.05rem;
   line-height: 1.6;
   color: var(--text-primary);
+  tab-size: 4;
 }
 
 .ProseMirror::-webkit-scrollbar {
