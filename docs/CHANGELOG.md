@@ -1,11 +1,9 @@
-# Version 1.4.8 (2026-11-22)
+# Version 1.4.9 (2026-11-22)
+- **Nueva Funcionalidad:** Modo nocturno rediseñado con estética de escritorio clásico. Los fondos ahora usan un verde pizarra profundo (#1e221f) y un asfalto cálido (#242825) en lugar del negro o gris oscuro tradicional, simulando el ambiente de una biblioteca de noche. El panel lateral y las tarjetas de materias se diferencian con un tono apenas más claro (#2a2f2b) y bordes verdes grisáceos sutiles, sin sombras proyectadas. El texto principal cambió a un color pergamino/crema suave (#dcd8cf) para reducir la fatiga visual en sesiones de estudio prolongadas. El acento pasó de un salvia iluminado a un verde musgo/salvia mate (#4a6b58), evocando el cuero verde de un escritorio antiguo. Dentro del editor Tiptap, el código inline usa terracota suave, los resaltados mostaza viejo translúcido y las citas un fondo musgo muy sutil, manteniendo la información importante legible dentro de la estética apagada y cuidada.
+- **FIX:** Scroll con touchpad/mouse: se desactivó `scroll-behavior: smooth` en los contenedores de scroll (`.content-area` y docs), que causaba arranque lento y saltos bruscos. Ahora el desplazamiento es nativo, gradual y constante.
 - **FIX:** Indentación en el editor (TipTap + persistencia Markdown): Tab dentro de listas anida/desanida el elemento con nodos reales (sobrevive al guardar como Markdown); fuera de una lista, Tab ya no inserta un tabulador de texto que se perdía al guardar (no-op). Ajustado `tab-size: 4` en el editor.
-
-# Version 1.4.7 (2026-11-18)
 - **FIX:** Se corrigió el botón "Cargar Nueva Materia" que no respondía cuando se comenzaba desde cero (sin materias registradas).
 
-# Version 1.4.6 (2026-11-01)
-- **Nueva Funcionalidad:** Modo nocturno rediseñado con estética de escritorio clásico. Los fondos ahora usan un verde pizarra profundo (#1e221f) y un asfalto cálido (#242825) en lugar del negro o gris oscuro tradicional, simulando el ambiente de una biblioteca de noche. El panel lateral y las tarjetas de materias se diferencian con un tono apenas más claro (#2a2f2b) y bordes verdes grisáceos sutiles, sin sombras proyectadas. El texto principal cambió a un color pergamino/crema suave (#dcd8cf) para reducir la fatiga visual en sesiones de estudio prolongadas. El acento pasó de un salvia iluminado a un verde musgo/salvia mate (#4a6b58), evocando el cuero verde de un escritorio antiguo. Dentro del editor Tiptap, el código inline usa terracota suave, los resaltados mostaza viejo translúcido y las citas un fondo musgo muy sutil, manteniendo la información importante legible dentro de la estética apagada y cuidada.
 
 # Version 1.3.6 (2026-10-06)
 - **FIX:** Linux: en algunas distribuciones actualizadas (como CachyOS, Arch o Fedora), la versión AppImage descargada desde GitHub no abría: se cerraba sola o quedaba la pantalla en blanco. Ya está corregido y ahora abre normalmente. 😀

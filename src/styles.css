@@ -415,7 +415,7 @@ body {
   padding: 2rem 3rem;
   overflow-y: auto;
   position: relative;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
 }
