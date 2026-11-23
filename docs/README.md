@@ -42,6 +42,21 @@ EstudIO unifica las herramientas esenciales del estudiante en una aplicación de
 14. CTRL+S para guardar el apunte
 ---
 
+## 🐧 Linux: variables de WebKitGTK (rendimiento / viewport)
+
+En `src-tauri/src/main.rs` se configuran por defecto (solo si el usuario no las define):
+
+- `WEBKIT_DISABLE_DMABUF_RENDERER=0` → DMABUF ACTIVADO (frames compartidos con GPU, más fluido en fullscreen/scroll).
+- `GDK_BACKEND=x11` → evita viewport negro en algunos combos Wayland/Mesa.
+
+Para **volver al estado anterior** (estable previo), editar `src-tauri/src/main.rs`:
+- cambiar `WEBKIT_DISABLE_DMABUF_RENDERER` a `"1"` (desactivar DMABUF),
+- y quitar/condicionar el bloque de `GDK_BACKEND` (dejar Wayland por defecto).
+
+Para probar variantes **sin recompilar** (AppImage existente), lanzar con variables de entorno, p. ej.:
+- `WEBKIT_DISABLE_DMABUF_RENDERER=0 ./EstudIO_*.AppImage`
+- `WEBKIT_DISABLE_DMABUF_RENDERER=0 GDK_BACKEND=x11 ./EstudIO_*.AppImage`
+
 ## 🛠️ Stack Tecnológico
 
 - **Backend**: Rust + Tauri v2 (acceso a base de datos, sistema de archivos, diálogos del SO e integración con el portapapeles nativo).

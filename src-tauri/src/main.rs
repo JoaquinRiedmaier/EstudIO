@@ -3,10 +3,30 @@
 fn main() {
     #[cfg(target_os = "linux")]
     {
-        // Solución al bug de WebKitGTK en Linux (Wayland / Mesa / Nvidia / Intel)
-        // que congela el viewport del WebView al tamaño inicial dejando áreas negras al maximizar/tiling.
+        // =========================================================================
+        // Variables de entorno de WebKitGTK para Linux (rendimiento / viewport).
+        //
+        // PRUEBAS EN CURSO (problema de fluidez en pantalla completa / scroll touchpad):
+        //   - DMABUF activado (0): WebKitGTK comparte frames con la GPU -> más fluido.
+        //   - DMABUF desactivado (1): frames por CPU -> se traba en fullscreen/resoluciones altas.
+        //   - GDK_BACKEND=x11: evita viewport negro en algunos combos Wayland/Mesa.
+        //
+        // Estado actual de PRUEBA: DMABUF activado (0) + GDK_BACKEND=x11 por defecto.
+        //
+        // PARA VOLVER AL ESTADO ANTERIOR (estable previo), cambiar:
+        //   WEBKIT_DISABLE_DMABUF_RENDERER -> "1"   (desactivar DMABUF)
+        //   y quitar/condicionar el bloque de GDK_BACKEND (dejar Wayland por defecto).
+        // =========================================================================
+
+        // DMABUF: por defecto ACTIVADO (0) para probar fluidez. Respetar override del usuario.
         if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
-            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "0");
+        }
+
+        // GDK_BACKEND: por defecto x11 (evita viewport negro). Respetar override del usuario.
+        // Para probar Wayland, lanzar con GDK_BACKEND=wayland.
+        if std::env::var("GDK_BACKEND").is_err() {
+            std::env::set_var("GDK_BACKEND", "x11");
         }
 
         // Configuración de rutas de GStreamer para AppImage / entornos empaquetados en Linux.
@@ -54,7 +74,10 @@ fn main() {
             // Actualizar GST_PLUGIN_SYSTEM_PATH_1_0
             if let Ok(curr) = std::env::var("GST_PLUGIN_SYSTEM_PATH_1_0") {
                 if !curr.is_empty() {
-                    std::env::set_var("GST_PLUGIN_SYSTEM_PATH_1_0", format!("{}:{}", curr, paths_str));
+                    std::env::set_var(
+                        "GST_PLUGIN_SYSTEM_PATH_1_0",
+                        format!("{}:{}", curr, paths_str),
+                    );
                 } else {
                     std::env::set_var("GST_PLUGIN_SYSTEM_PATH_1_0", &paths_str);
                 }
@@ -88,4 +111,3 @@ fn main() {
 
     estudio_lib::run();
 }
-
